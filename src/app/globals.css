@@ -1,26 +1,275 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #f6f6f4;
   --foreground: #171717;
+  --card: #ffffff;
+  --sidebar: #ffffff;
+  --muted: #ededeb;
+  --muted-foreground: #737373;
+  --border: #dfdfdc;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --radius: 8px;
+  --radius-sm: max(0px, calc(var(--radius) - 4px));
+  --radius-lg: calc(var(--radius) + 2px);
+  --motion-fast: 140ms;
+  --motion-normal: 180ms;
+  --motion-slow: 260ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-sidebar: var(--sidebar);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html.dark {
+  --background: #08090b;
+  --foreground: #f3f4f6;
+  --card: #111317;
+  --sidebar: #111317;
+  --muted: #1b1e24;
+  --muted-foreground: #a3a3a3;
+  --border: #2a2d35;
+}
+
+html.motion-reduced {
+  --motion-fast: 0ms;
+  --motion-normal: 0ms;
+  --motion-slow: 0ms;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  transition: background-color var(--motion-normal) var(--motion-ease), color var(--motion-normal) var(--motion-ease);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: #4f46e5;
+  color: white;
+}
+
+button,
+a,
+input,
+textarea {
+  letter-spacing: 0;
+}
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+a[href],
+summary {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.rounded,
+.rounded-md {
+  border-radius: var(--radius);
+}
+
+.rounded-lg,
+.rounded-xl {
+  border-radius: var(--radius-lg);
+}
+
+.rounded-sm {
+  border-radius: var(--radius-sm);
+}
+
+.rounded-full {
+  border-radius: 9999px;
+}
+
+.main-route-transition {
+  animation: route-in var(--motion-normal) var(--motion-ease);
+}
+
+.page-loading-line {
+  position: fixed;
+  inset: 0 auto auto 0;
+  z-index: 80;
+  height: 2px;
+  width: 100%;
+  transform-origin: left;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  animation: page-line 540ms var(--motion-ease) forwards;
+  pointer-events: none;
+}
+
+.theme-wave {
+  position: fixed;
+  z-index: 70;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: var(--primary);
+  opacity: 0.14;
+  transform: translate(-50%, -50%) scale(0);
+  animation: theme-wave 700ms var(--motion-ease) forwards;
+  mix-blend-mode: multiply;
+}
+
+html.dark .theme-wave {
+  opacity: 0.2;
+  mix-blend-mode: screen;
+}
+
+.theme-icon {
+  animation: theme-icon var(--motion-normal) var(--motion-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes structured-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modal-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes route-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes page-line {
+  0% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  12% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+    transform: scaleX(0.92);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes theme-wave {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(160);
+  }
+}
+
+@keyframes theme-icon {
+  from {
+    opacity: 0.3;
+    transform: rotate(-18deg) scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+  }
+}
+
+@keyframes login-card {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

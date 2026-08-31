@@ -1,0 +1,256 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { ArrowLeft, CheckCircle2, Clock, Phone, Sparkles, UserRound } from "lucide-react";
+import { analysesApi, callsApi, transcriptsApi } from "@/lib/api/client";
+import { useT } from "@/i18n/use-t";
+import { useFormatters } from "@/i18n/use-formatters";
+import { demoAnalyses, demoCalls, demoTranscripts } from "@/lib/data/demo";
+import { displayPerson, objectId, titleCase } from "@/lib/utils/format";
+import { useApiItem } from "@/hooks/use-api-item";
+import { useApiResource } from "@/hooks/use-api-resource";
+import type { Analysis, Call, Transcript, TranscriptSegment } from "@/types/domain";
+import { Badge, ScoreBadge, StatusBadge } from "@/components/ui/badge";
+import { AIScore, aiScoreLabel } from "@/components/ui/ai-score";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { ExtractedFields } from "@/components/ui/extracted-fields";
+import { AiEvaluationPanel } from "@/components/ui/structured-ai-data";
+import { EmptyState, ErrorState } from "@/components/ui/states";
+
+function CallMeta({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
+      <span className="shrink-0 text-muted-foreground">{icon}</span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+        <div className="truncate text-sm font-medium text-foreground">{value}</div>
+      </div>
+    </div>
+  );
+}
+
+function InsightShell({ tone, children }: { tone: "positive" | "attention" | "critical" | "neutral"; children: React.ReactNode }) {
+  const styles = {
+    positive: "border-emerald-200 bg-emerald-50/70 dark:border-emerald-500/30 dark:bg-emerald-500/10",
+    attention: "border-amber-200 bg-amber-50/70 dark:border-amber-500/30 dark:bg-amber-500/10",
+    critical: "border-red-200 bg-red-50/60 dark:border-red-500/30 dark:bg-red-500/10",
+    neutral: "border-border bg-background/60",
+  };
+  return <div className={`rounded-lg border p-4 ${styles[tone]}`}>{children}</div>;
+}
+
+function normalizeSpeaker(speaker: string | undefined, t: (key: string) => string) {
+  const normalized = speaker?.toLowerCase() ?? "";
+  if (/(client|customer|buyer|lead|клиент|mijoz)/.test(normalized)) return { label: t("transcript.client"), side: "client" as const };
+  if (/(seller|sales|operator|agent|manager|менеджер|оператор|sotuvchi)/.test(normalized)) return { label: t("transcript.sales"), side: "sales" as const };
+  return { label: speaker || t("transcript.unknownSpeaker"), side: "unknown" as const };
+}
+
+function formatSegmentTime(segment: TranscriptSegment) {
+  if (segment.timestamp) return segment.timestamp;
+  if (segment.start === undefined) return "";
+  const minutes = Math.floor(segment.start / 60);
+  const seconds = Math.floor(segment.start % 60);
+  return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function TranscriptSkeleton() {
+  return (
+    <div className="space-y-4 p-5">
+      {Array.from({ length: 5 }, (_, index) => (
+        <div key={index} className={`grid animate-pulse gap-3 sm:grid-cols-[6.5rem_minmax(0,1fr)] ${index % 2 ? "sm:grid-cols-[minmax(0,1fr)_6.5rem]" : ""}`}>
+          <div className={`${index % 2 ? "sm:order-2" : ""} space-y-2`}>
+            <div className="h-4 w-20 rounded-md bg-muted" />
+            <div className="h-3 w-12 rounded-md bg-muted" />
+          </div>
+          <div className={`${index % 2 ? "sm:order-1 sm:ml-auto" : ""} w-full max-w-[56rem] rounded-lg border border-border bg-background/70 p-4`}>
+            <div className="h-3 w-11/12 rounded-md bg-muted" />
+            <div className="mt-3 h-3 w-8/12 rounded-md bg-muted" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TranscriptPanel({
+  call,
+  analysis,
+  transcript,
+  loading,
+  error,
+  onRetry,
+}: {
+  call: Call;
+  analysis?: Analysis;
+  transcript?: Transcript;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+}) {
+  const t = useT();
+  const { formatDate, formatTime, formatDuration } = useFormatters();
+  const [activeSegment, setActiveSegment] = useState<string | null>(null);
+  const segments = Array.isArray(transcript?.segments) ? (transcript.segments as TranscriptSegment[]) : [];
+  const hasTranscriptText = !!transcript?.text;
+
+  return (
+    <Card>
+      <div className="border-b border-border px-5 py-4">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(34rem,0.9fr)] xl:items-end">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-indigo-500">{t("transcript.conversation")}</p>
+            <h2 className="mt-1 text-lg font-semibold text-foreground">{t("dashboard.callNumber", { id: call.id })}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{displayPerson(call.operator, t("transcript.sales"))} · {call.client_phone ?? t("transcript.client")}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
+            <CallMeta icon={<Clock className="h-4 w-4" />} label={t("transcript.date")} value={formatDate(call.started_at)} />
+            <CallMeta icon={<Clock className="h-4 w-4" />} label={t("transcript.time")} value={formatTime(call.started_at)} />
+            <CallMeta icon={<Phone className="h-4 w-4" />} label={t("calls.duration")} value={formatDuration(call.duration)} />
+            <CallMeta icon={<Sparkles className="h-4 w-4" />} label={t("calls.aiScore")} value={<ScoreBadge score={analysis?.overall_score} />} />
+          </div>
+        </div>
+      </div>
+      {loading ? <TranscriptSkeleton /> : error ? <ErrorState title={t("transcript.loadError")} description={error} onRetry={onRetry} /> : segments.length ? (
+        <CardContent className="space-y-1">
+          {segments.map((segment, index) => {
+            const speaker = normalizeSpeaker(segment.speaker, t);
+            const key = String(segment.id ?? `${segment.speaker ?? "speaker"}-${index}`);
+            const active = activeSegment === key;
+            const time = formatSegmentTime(segment);
+            const client = speaker.side === "client";
+            return (
+              <button
+                key={key}
+                type="button"
+                className={`group grid w-full gap-3 rounded-lg px-3 py-3 text-left transition duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary sm:grid-cols-[6.5rem_minmax(0,1fr)] ${
+                  client ? "sm:grid-cols-[minmax(0,1fr)_6.5rem]" : ""
+                } ${active ? "bg-primary/10" : "hover:bg-muted/70"}`}
+                aria-label={t("transcript.focusSegment")}
+                onClick={() => setActiveSegment(key)}
+              >
+                <div className={`${client ? "sm:order-2 sm:text-right" : ""}`}>
+                  <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${speaker.side === "sales" ? "text-indigo-600 dark:text-indigo-300" : client ? "text-emerald-600 dark:text-emerald-300" : "text-muted-foreground"}`}>{speaker.label}</p>
+                  {time ? <p className={`mt-1 text-xs transition ${active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}>{time}</p> : null}
+                </div>
+                <div className={`${client ? "sm:order-1 sm:ml-auto" : ""} w-fit max-w-full sm:max-w-[56rem] rounded-lg border border-border bg-background/70 px-4 py-3 shadow-sm`}>
+                  <p className="leading-7 text-foreground">{segment.text ?? t("transcript.noTranscript")}</p>
+                </div>
+              </button>
+            );
+          })}
+        </CardContent>
+      ) : hasTranscriptText ? (
+        <CardContent>
+          <div className="rounded-lg border border-border bg-background/70 p-5 leading-8 text-foreground whitespace-pre-wrap">{transcript.text}</div>
+        </CardContent>
+      ) : (
+        <EmptyState title={t("transcript.noTranscript")} description={t("transcript.noTranscriptDescription")} />
+      )}
+    </Card>
+  );
+}
+
+export function CallDetail({ id }: { id: string }) {
+  const t = useT();
+  const { formatDate, formatDuration } = useFormatters();
+  const callItem = useApiItem(callsApi.get, id, demoCalls.find((item) => String(item.id) === id));
+  const analyses = useApiResource(analysesApi.list, demoAnalyses);
+  const transcripts = useApiResource(transcriptsApi.list, demoTranscripts);
+  const call = callItem.data;
+  const analysis = analyses.data.find((item) => String(objectId(item.call)) === String(call?.id));
+  const transcript = transcripts.data.find((item) => String(objectId(item.call)) === String(call?.id));
+  const scoreValue = analysis?.overall_score === null || analysis?.overall_score === undefined ? null : Number(analysis.overall_score);
+
+  if (callItem.loading) return <TranscriptSkeleton />;
+  if (callItem.error) return <ErrorState title={t("callDetail.loadError")} description={callItem.error} onRetry={callItem.reload} />;
+  if (!call) return <EmptyState title={t("callDetail.notFound")} description={t("callDetail.notFoundDescription")} />;
+
+  return (
+    <div className="w-full">
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <Link className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-medium text-foreground transition hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500" href="/calls">
+          <ArrowLeft className="h-4 w-4" />
+          {t("callDetail.back")}
+        </Link>
+        <div className="flex items-center gap-2">
+          <StatusBadge value={call.stage} />
+          <Badge tone="ai">{titleCase(call.direction)}</Badge>
+        </div>
+      </div>
+      <section className="mb-4 rounded-lg border border-border bg-card p-5 shadow-sm">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(36rem,1fr)] xl:items-end">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-indigo-500">{t("callDetail.review")}</p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-normal text-foreground">{t("dashboard.callNumber", { id: call.id })}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{call.client_phone ?? t("callDetail.unknownPhone")} · {displayPerson(call.operator, t("callDetail.operator"))}</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <CallMeta icon={<Phone className="h-4 w-4" />} label={t("callDetail.client")} value={call.client_phone ?? t("common.notRecorded")} />
+            <CallMeta icon={<UserRound className="h-4 w-4" />} label={t("callDetail.operator")} value={displayPerson(call.operator, t("callDetail.operator"))} />
+            <CallMeta icon={<Clock className="h-4 w-4" />} label={t("calls.duration")} value={formatDuration(call.duration)} />
+            <CallMeta icon={<Sparkles className="h-4 w-4" />} label={t("calls.started")} value={formatDate(call.started_at)} />
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem] xl:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="space-y-4">
+          <Card>
+            <CardContent className="p-5">
+              <div className="space-y-3 text-sm">
+              <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.direction")}</span><Badge tone="ai">{titleCase(call.direction)}</Badge></div>
+              <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.stage")}</span><StatusBadge value={call.stage} /></div>
+              <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.provider")}</span><span className="font-medium">{call.provider ?? t("common.notRecorded")}</span></div>
+              <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.aiModel")}</span><span className="text-right font-medium">{analysis?.model_name ?? t("common.notRecorded")}</span></div>
+              <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.reviewTime")}</span><span className="text-right font-medium">{formatDate(analysis?.created_at)}</span></div>
+              </div>
+            </CardContent>
+          </Card>
+          <InsightShell tone={scoreValue === null || !Number.isFinite(scoreValue) ? "neutral" : scoreValue >= 85 ? "positive" : scoreValue >= 70 ? "attention" : "critical"}>
+            <div className="mb-2 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-indigo-500" />
+              <h2 className="text-sm font-semibold text-foreground">{t("callDetail.aiSummary")}</h2>
+            </div>
+            <p className="leading-7 text-foreground">{analysis?.summary ?? t("callDetail.noSummary")}</p>
+          </InsightShell>
+          <Card>
+            <CardHeader title={t("callDetail.aiEvaluation")} />
+            <CardContent>
+              <AiEvaluationPanel value={analysis?.evaluation} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader title={t("callDetail.extractedData")} />
+            <CardContent>
+              <ExtractedFields value={analysis?.extracted_fields} />
+            </CardContent>
+          </Card>
+          <TranscriptPanel call={call} analysis={analysis} transcript={transcript} loading={transcripts.loading} error={transcripts.error} onRetry={transcripts.reload} />
+          <Card>
+            <CardHeader title={t("callDetail.leadResult")} />
+            <CardContent>
+              {analysis?.lead_created ? (
+                <div className="flex items-center gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+                  <CheckCircle2 className="h-5 w-5" />
+                  <span className="text-sm font-medium">{t("callDetail.leadCreated")}</span>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">{analysis?.skip_reason ?? t("callDetail.noLead")}</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+        <div className="order-first lg:order-last lg:self-start">
+          <Card className="lg:sticky lg:top-24 lg:z-20">
+            <CardContent className="p-6">
+              <AIScore score={analysis?.overall_score} size="lg" />
+              <p className="mt-2 text-sm font-medium text-foreground">{aiScoreLabel(analysis?.overall_score, t)}</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
