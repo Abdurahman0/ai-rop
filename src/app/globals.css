@@ -139,9 +139,9 @@ html.dark .theme-wave {
 
 .login-panel {
   background:
-    radial-gradient(120% 90% at 15% 0%, #241f4d 0%, transparent 60%),
-    radial-gradient(90% 80% at 100% 100%, #1b1741 0%, transparent 55%),
-    #0b0b12;
+    radial-gradient(105% 75% at 8% -5%, #4338ca 0%, rgba(67, 56, 202, 0) 58%),
+    radial-gradient(95% 70% at 100% 105%, #6d28d9 0%, rgba(109, 40, 217, 0) 60%),
+    linear-gradient(160deg, #14122b 0%, #0b0b14 55%, #100e21 100%);
 }
 
 .login-panel-grid {
@@ -154,7 +154,7 @@ html.dark .theme-wave {
 }
 
 .login-noise {
-  opacity: 0.5;
+  opacity: 0.35;
   mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.32'/%3E%3C/svg%3E");
 }
