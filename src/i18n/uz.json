@@ -130,7 +130,8 @@
     "noLeadsDescription": "Lid yarating yoki AI imkoniyat topishini kuting.",
     "chartDate": "Sana",
     "chartCalls": "Qoʻngʻiroqlar",
-    "chartAiReviews": "AI sharhlari"
+    "chartAiReviews": "AI sharhlari",
+    "scoringUnavailable": "Sotuvchi bahosi hozircha backend tomonidan hisoblanmaydi, shuning uchun ball yo‘q."
   },
   "calls": {
     "title": "Qoʻngʻiroqlar",
@@ -152,7 +153,22 @@
     "started": "Boshlangan",
     "duration": "Davomiylik",
     "aiScore": "AI bali",
-    "action": "Amal"
+    "action": "Amal",
+    "stages": {
+      "received": "Qabul qilindi",
+      "audio_stored": "Audio saqlandi",
+      "transcribing": "Matnga o‘girilmoqda",
+      "transcribed": "Matnga o‘girildi",
+      "analyzing": "Tahlil qilinmoqda",
+      "analyzed": "Tahlil qilindi",
+      "completed": "Yakunlandi",
+      "failed": "Xatolik"
+    },
+    "directions": {
+      "inbound": "Kiruvchi",
+      "outbound": "Chiquvchi",
+      "unknown": "Noma’lum"
+    }
   },
   "intelligence": {
     "reviewsTitle": "AI sharhlari",
@@ -185,7 +201,13 @@
     "providerNotRecorded": "Provayder qayd etilmagan",
     "fullTranscript": "Toʻliq transkript",
     "speaker": "Spiker {number}",
-    "noTranscriptText": "Transkript matni mavjud emas."
+    "noTranscriptText": "Transkript matni mavjud emas.",
+    "skip": {
+      "no_client_phone": "Mijoz telefon raqami yo‘q",
+      "no_lead_intent": "Qiziqish aniqlanmadi",
+      "insufficient_data": "Ma’lumot yetarli emas",
+      "no_default_status": "Standart lead statusi sozlanmagan"
+    }
   },
   "resources": {
     "leadsTitle": "Lidlar",
@@ -302,7 +324,17 @@
     "relatedLeads": "Bogʻlangan lidlar",
     "relatedCalls": "Bogʻlangan qoʻngʻiroqlar",
     "relationshipHint": "Backend mijoz/lid bogʻlanishlarini qaytarsa mavjud bo‘ladi.",
-    "matchingCallsHint": "Mijoz telefoni va qoʻngʻiroq yozuvlari mos kelganda mavjud bo‘ladi."
+    "matchingCallsHint": "Mijoz telefoni va qoʻngʻiroq yozuvlari mos kelganda mavjud bo‘ladi.",
+    "system": "Tizim",
+    "inactive": "Nofaol",
+    "keyHint": "custom_data ichidagi doimiy kalit. Keyin o‘zgartirib bo‘lmaydi.",
+    "fieldImmutableHint": "Kalit, obyekt va tur o‘zgarmaydi. Nomi, tartibi, majburiyligi va AI izohini tahrirlash mumkin.",
+    "phoneHint": "Xalqaro formatda saqlanadi, kompaniya ichida yagona.",
+    "fieldDeactivated": "Maydon o‘chirildi. Saqlangan qiymatlar qoladi.",
+    "leadMoved": "Lead «{status}» holatiga ko‘chirildi.",
+    "moveLeadError": "Lead statusini yangilab bo‘lmadi.",
+    "dropHere": "Leadni shu yerga tashlang",
+    "dragHint": "Statusni o‘zgartirish uchun kartani sudrang"
   },
   "appearance": {
     "title": "Koʻrinish",
@@ -425,7 +457,8 @@
     "loadError": "Transkriptni yuklab bo‘lmadi",
     "loading": "Transkript yuklanmoqda",
     "focusSegment": "Transkript segmentini ajratish",
-    "activeSegment": "Tanlangan segment"
+    "activeSegment": "Tanlangan segment",
+    "speaker": "{number}-so‘zlovchi"
   },
   "greeting": {
     "morning": "Xayrli tong",
@@ -460,5 +493,13 @@
       "mahsulot": "Mahsulot",
       "product": "Mahsulot"
     }
+  },
+  "fields": {
+    "customFields": "Qo‘shimcha maydonlar",
+    "customFieldsHint": "Kompaniyangiz tomonidan «Sozlamalar → Maydonlar» bo‘limida belgilanadi.",
+    "noneDefined": "Bu yozuv turi uchun faol maydon belgilanmagan.",
+    "requiredError": "Bu maydon majburiy.",
+    "numberError": "To‘g‘ri raqam kiriting.",
+    "dateError": "YYYY-MM-DD formatidan foydalaning."
   }
 }

@@ -85,3 +85,24 @@ export function relativeDayGreeting() {
   if (hour < 18) return "greeting.afternoon";
   return "greeting.evening";
 }
+
+/**
+ * Splits an analysis `skip_reason` into its code and optional detail, e.g.
+ * `"insufficient_data: mahsulot, narx"` -> `{ code, detail }`.
+ */
+export function parseSkipReason(reason?: string | null) {
+  if (!reason) return null;
+  const [code, ...rest] = reason.split(":");
+  const detail = rest.join(":").trim();
+  return { code: code.trim(), detail: detail || undefined };
+}
+
+/**
+ * Diarization labels like `SPEAKER_00` are provider indexes, not people — a
+ * two-person call can report three or four. Returns the 1-based index so the UI
+ * can label them neutrally instead of guessing a role.
+ */
+export function speakerIndex(speaker?: string) {
+  const match = speaker?.match(/^speaker[\s_-]?(\d+)$/i);
+  return match ? Number(match[1]) + 1 : null;
+}

@@ -138,7 +138,24 @@ export function Dashboard() {
   const scoredAnalyses = analyses.data.map((item) => scoreNumber(item.overall_score)).filter((score): score is number => score !== null);
   const avgScore = scoredAnalyses.length ? Math.round(scoredAnalyses.reduce((sum, score) => sum + score, 0) / scoredAnalyses.length) : null;
   const latestCalls = calls.data.slice(0, 5);
-  const insights = analyses.data.slice().sort((a, b) => (scoreNumber(a.overall_score) ?? 0) - (scoreNumber(b.overall_score) ?? 0)).slice(0, 4);
+  // The backend does not produce overall_score yet: unscored reviews are ranked
+  // after scored ones instead of being treated as a zero.
+  const insights = analyses.data
+    .slice()
+    .sort((a, b) => {
+      const left = scoreNumber(a.overall_score);
+      const right = scoreNumber(b.overall_score);
+      if (left === null && right === null) return String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""));
+      if (left === null) return 1;
+      if (right === null) return -1;
+      return left - right;
+    })
+    .slice(0, 4);
+  const scoreBuckets = [
+    { label: t("dashboard.strongConversations"), count: scoredAnalyses.filter((score) => score >= 85).length, tone: "success" as const },
+    { label: t("dashboard.needsAttention"), count: scoredAnalyses.filter((score) => score >= 70 && score < 85).length, tone: "warning" as const },
+    { label: t("dashboard.critical"), count: scoredAnalyses.filter((score) => score < 70).length, tone: "danger" as const },
+  ];
   const byStatus = useMemo(() => statuses.data.map((status) => ({ status, leads: leads.data.filter((lead) => objectId(lead.status) === status.id) })), [leads.data, statuses.data]);
 
   return (
@@ -170,16 +187,15 @@ export function Dashboard() {
           <CardContent>
             <AIScore score={avgScore} size="lg" />
             <div className="mt-5 space-y-3">
-              {[
-                [t("dashboard.strongConversations"), analyses.data.filter((a) => (scoreNumber(a.overall_score) ?? 0) >= 85).length, "success"],
-                [t("dashboard.needsAttention"), analyses.data.filter((a) => (scoreNumber(a.overall_score) ?? 0) >= 70 && (scoreNumber(a.overall_score) ?? 0) < 85).length, "warning"],
-                [t("dashboard.critical"), analyses.data.filter((a) => (scoreNumber(a.overall_score) ?? 0) < 70).length, "danger"],
-              ].map(([label, value, tone]) => (
-                <div key={label} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-                  <span className="text-sm text-muted-foreground">{label}</span>
-                  <Badge tone={tone as "success" | "warning" | "danger"}>{value}</Badge>
+              {scoreBuckets.map((bucket) => (
+                <div key={bucket.label} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                  <span className="text-sm text-muted-foreground">{bucket.label}</span>
+                  <Badge tone={bucket.tone}>{bucket.count}</Badge>
                 </div>
               ))}
+              {analyses.data.length > 0 && scoredAnalyses.length === 0 ? (
+                <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">{t("dashboard.scoringUnavailable")}</p>
+              ) : null}
             </div>
           </CardContent>
         </Card>

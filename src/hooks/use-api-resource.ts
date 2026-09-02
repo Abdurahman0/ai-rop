@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ApiError } from "@/lib/api/client";
+import { ApiError, PAGE_SIZE } from "@/lib/api/client";
 import { listOf } from "@/lib/utils/format";
 import { useAuthStore } from "@/stores/auth-store";
 import type { ApiList, ResourceMeta } from "@/types/domain";
@@ -24,7 +24,7 @@ export function useApiResource<T>(
   fallback: T[],
   query?: Record<string, string | number | boolean | undefined | null>,
 ): ResourceState<T> {
-  const { accessToken, refresh } = useAuthStore();
+  const accessToken = useAuthStore((state) => state.accessToken);
   const [page, setPage] = useState(Number(query?.page ?? 1));
   const [data, setData] = useState<T[]>([]);
   const [count, setCount] = useState(0);
@@ -39,60 +39,45 @@ export function useApiResource<T>(
     setLoading(true);
     setError(null);
     setFailed(false);
-    const effectiveQuery = { ...query, page };
     try {
-      const payload = await loader(accessToken, effectiveQuery);
+      // The client attaches the token itself and refreshes it on a 401.
+      const payload = await loader(undefined, { ...query, page });
       setData(listOf(payload));
       setCount(Array.isArray(payload) ? payload.length : payload.count ?? payload.results?.length ?? 0);
       setNext(Array.isArray(payload) ? null : payload.next ?? null);
       setPrevious(Array.isArray(payload) ? null : payload.previous ?? null);
       setIsDemo(false);
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        const token = await refresh();
-        if (token) {
-          const payload = await loader(token, effectiveQuery);
-          setData(listOf(payload));
-          setCount(Array.isArray(payload) ? payload.length : payload.count ?? payload.results?.length ?? 0);
-          setNext(Array.isArray(payload) ? null : payload.next ?? null);
-          setPrevious(Array.isArray(payload) ? null : payload.previous ?? null);
-          setIsDemo(false);
-          setLoading(false);
-          return;
-        }
-      }
       if (DEMO_MODE) {
         setData(fallback);
         setCount(fallback.length);
-        setNext(null);
-        setPrevious(null);
         setIsDemo(true);
       } else {
         setData([]);
         setCount(0);
-        setNext(null);
-        setPrevious(null);
         setIsDemo(false);
       }
+      setNext(null);
+      setPrevious(null);
       setFailed(true);
       setError(err instanceof ApiError ? err.friendlyMessage : err instanceof Error ? err.message : "errors.loadData");
     } finally {
       setLoading(false);
     }
-  }, [accessToken, fallback, loader, page, query, refresh]);
+  }, [fallback, loader, page, query]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       void load();
     });
     return () => cancelAnimationFrame(frame);
-  }, [load]);
+    // accessToken is a dependency so the list reloads once sign-in completes.
+  }, [accessToken, load]);
 
-  const pageSize = data.length || Number(query?.page_size ?? 20);
   return {
     data,
     count,
-    meta: { count, next, previous, page, pageSize, totalPages: Math.max(1, Math.ceil(count / Math.max(1, pageSize))), isDemo },
+    meta: { count, next, previous, page, pageSize: PAGE_SIZE, totalPages: Math.max(1, Math.ceil(count / PAGE_SIZE)), isDemo },
     loading,
     error,
     failed,

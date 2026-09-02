@@ -2,7 +2,8 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { authApi } from "@/lib/api/client";
+import { ApiError, authApi } from "@/lib/api/client";
+import { setAuthBridge } from "@/lib/api/auth-bridge";
 
 type AuthState = {
   accessToken: string | null;
@@ -25,9 +26,9 @@ export const useAuthStore = create<AuthState>()(
         set({ status: "loading", error: null });
         try {
           const tokens = await authApi.login({ username, password });
-          set({ accessToken: tokens.access, refreshToken: tokens.refresh, status: "authenticated" });
+          set({ accessToken: tokens.access, refreshToken: tokens.refresh, status: "authenticated", error: null });
         } catch (error) {
-          set({ status: "error", error: error instanceof Error ? error.message : "auth.invalidCredentials" });
+          set({ status: "error", error: authErrorKey(error) });
           throw error;
         }
       },
@@ -35,9 +36,15 @@ export const useAuthStore = create<AuthState>()(
         const refreshToken = get().refreshToken;
         if (!refreshToken) return null;
         try {
-          const token = await authApi.refresh(refreshToken);
-          set({ accessToken: token.access, status: "authenticated" });
-          return token.access;
+          const tokens = await authApi.refresh(refreshToken);
+          // Refresh tokens rotate — keep the new one or the next refresh fails.
+          set({
+            accessToken: tokens.access,
+            refreshToken: tokens.refresh ?? refreshToken,
+            status: "authenticated",
+            error: null,
+          });
+          return tokens.access;
         } catch {
           get().logout();
           return null;
@@ -54,3 +61,21 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 );
+
+/** Maps a failed sign-in onto a translatable message key. */
+function authErrorKey(error: unknown) {
+  if (error instanceof ApiError) {
+    if (error.status === 0) return "auth.networkError";
+    if (error.status === 401 || error.status === 400) return "auth.invalidCredentials";
+    // 403 = the account exists but belongs to no company; show the backend reason.
+    return error.friendlyMessage;
+  }
+  return error instanceof Error ? error.message : "auth.invalidCredentials";
+}
+
+// Gives the API client access to the tokens without a circular import.
+setAuthBridge({
+  getAccessToken: () => useAuthStore.getState().accessToken,
+  refresh: () => useAuthStore.getState().refresh(),
+  onUnauthorized: () => useAuthStore.getState().logout(),
+});

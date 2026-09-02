@@ -10,8 +10,12 @@ import type {
   ResourceName,
   Transcript,
 } from "@/types/domain";
+import { authBridge } from "./auth-bridge";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/backend-api";
+
+/** The backend paginates every list endpoint at a fixed 50 items per page. */
+export const PAGE_SIZE = 50;
 
 export type Credentials = {
   username: string;
@@ -23,14 +27,19 @@ export type TokenPair = {
   refresh: string;
 };
 
+/** Field-keyed validation errors, e.g. `{ "custom_data.narx": "raqam emas" }`. */
+export type FieldErrors = Record<string, string>;
+
 export class ApiError extends Error {
   status: number;
   friendlyMessage: string;
+  fieldErrors: FieldErrors;
 
-  constructor(status: number, message: string, friendlyMessage = friendlyApiMessage(status)) {
+  constructor(status: number, message: string, friendlyMessage = friendlyApiMessage(status), fieldErrors: FieldErrors = {}) {
     super(message);
     this.status = status;
     this.friendlyMessage = friendlyMessage;
+    this.fieldErrors = fieldErrors;
   }
 }
 
@@ -38,16 +47,18 @@ type RequestOptions = Omit<RequestInit, "body"> & {
   token?: string | null;
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined | null>;
+  /** Skips the Authorization header and the refresh-on-401 retry (auth endpoints). */
+  skipAuth?: boolean;
 };
 
 function urlFor(path: string, query?: RequestOptions["query"]) {
   const base = API_URL.replace(/\/$/, "");
-  const pathname = path.startsWith("/") ? path : `/${path}`;
-  const target = path.startsWith("http")
-    ? path
-    : base.startsWith("http")
-      ? `${base}${pathname}`
-      : `${base}${pathname}`;
+  const proxied = !base.startsWith("http");
+  // Django needs the trailing slash, but Next redirects (308) any route that
+  // carries one. The proxy re-adds it, so drop it before the local hop.
+  const normalized = proxied ? path.replace(/\/$/, "") : path;
+  const pathname = normalized.startsWith("/") ? normalized : `/${normalized}`;
+  const target = path.startsWith("http") ? path : `${base}${pathname}`;
   const url = new URL(target, typeof window === "undefined" ? "http://localhost" : window.location.origin);
   Object.entries(query ?? {}).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
@@ -55,33 +66,112 @@ function urlFor(path: string, query?: RequestOptions["query"]) {
   return base.startsWith("http") || path.startsWith("http") ? url.toString() : `${url.pathname}${url.search}`;
 }
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+function flattenMessage(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    const parts = value.map(flattenMessage).filter(Boolean);
+    return parts.length ? parts.join(" ") : null;
+  }
+  return null;
+}
+
+/**
+ * DRF hands back either `{ detail }` or a field-keyed object. `custom_data`
+ * errors are nested one level deeper (`{ custom_data: { key: message } }`).
+ */
+function parseErrorBody(data: unknown): { message: string | null; fieldErrors: FieldErrors } {
+  const fieldErrors: FieldErrors = {};
+  if (!data || typeof data !== "object") return { message: null, fieldErrors };
+
+  const record = data as Record<string, unknown>;
+  let message = flattenMessage(record.detail) ?? flattenMessage(record.message) ?? flattenMessage(record.non_field_errors);
+
+  Object.entries(record).forEach(([key, value]) => {
+    if (key === "detail" || key === "message" || key === "non_field_errors") return;
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      Object.entries(value as Record<string, unknown>).forEach(([nestedKey, nestedValue]) => {
+        const nested = flattenMessage(nestedValue);
+        if (nested) fieldErrors[`${key}.${nestedKey}`] = nested;
+      });
+      return;
+    }
+    const flat = flattenMessage(value);
+    if (flat) fieldErrors[key] = flat;
+  });
+
+  if (!message) {
+    const first = Object.values(fieldErrors)[0];
+    if (first) message = first;
+  }
+  return { message, fieldErrors };
+}
+
+let refreshInFlight: Promise<string | null> | null = null;
+
+/** Collapses parallel 401s into a single refresh call. */
+function refreshOnce() {
+  if (!refreshInFlight) {
+    refreshInFlight = authBridge.refresh().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+async function send(path: string, options: RequestOptions, token: string | null) {
   const headers = new Headers(options.headers);
   if (!headers.has("Content-Type") && options.body !== undefined) headers.set("Content-Type", "application/json");
-  if (options.token) headers.set("Authorization", `Bearer ${options.token}`);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  else headers.delete("Authorization");
+
+  return fetch(urlFor(path, options.query), {
+    ...options,
+    headers,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+  });
+}
+
+async function toApiError(response: Response) {
+  let message = "Something went wrong while talking to the backend.";
+  let fieldErrors: FieldErrors = {};
+  try {
+    const parsed = parseErrorBody(await response.json());
+    message = parsed.message ?? message;
+    fieldErrors = parsed.fieldErrors;
+  } catch {
+    message = response.statusText || message;
+  }
+  // 400 and 403 carry a specific, user-facing reason from the backend.
+  const friendly = response.status === 400 || response.status === 403 ? message : friendlyApiMessage(response.status);
+  return new ApiError(response.status, message, friendly, fieldErrors);
+}
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const token = options.skipAuth ? null : options.token ?? authBridge.getAccessToken();
 
   let response: Response;
   try {
-    response = await fetch(urlFor(path, options.query), {
-      ...options,
-      headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
+    response = await send(path, options, token);
   } catch (error) {
-    throw new ApiError(0, error instanceof Error ? error.message : "Network error", "Unable to reach the backend. Check the API connection and try again.");
+    throw new ApiError(0, error instanceof Error ? error.message : "Network error", friendlyApiMessage(0));
   }
 
-  if (!response.ok) {
-    let message = "Something went wrong while talking to the backend.";
-    try {
-      const data = (await response.json()) as { detail?: string; message?: string };
-      message = data.detail ?? data.message ?? message;
-    } catch {
-      message = response.statusText || message;
+  // Access tokens live 30 minutes; refresh once and replay the request.
+  if (response.status === 401 && !options.skipAuth) {
+    const refreshed = await refreshOnce();
+    if (!refreshed) {
+      authBridge.onUnauthorized();
+      throw await toApiError(response);
     }
-    throw new ApiError(response.status, message);
+    try {
+      response = await send(path, options, refreshed);
+    } catch (error) {
+      throw new ApiError(0, error instanceof Error ? error.message : "Network error", friendlyApiMessage(0));
+    }
+    if (response.status === 401) authBridge.onUnauthorized();
   }
 
+  if (!response.ok) throw await toApiError(response);
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
@@ -131,26 +221,38 @@ export function friendlyApiMessage(status: number) {
 }
 
 export const authApi = {
-  login: (credentials: Credentials) => apiRequest<TokenPair>("/api/auth/token/", { method: "POST", body: credentials }),
-  refresh: (refresh: string) => apiRequest<{ access: string }>("/api/auth/token/refresh/", { method: "POST", body: { refresh } }),
+  login: (credentials: Credentials) => apiRequest<TokenPair>("/api/auth/token/", { method: "POST", body: credentials, skipAuth: true }),
+  // Refresh tokens rotate: the response carries a new refresh token too.
+  refresh: (refresh: string) => apiRequest<TokenPair>("/api/auth/token/refresh/", { method: "POST", body: { refresh }, skipAuth: true }),
 };
 
-function resourceApi<T extends { id: ID }>(resource: ResourceName) {
+type ListQuery = RequestOptions["query"];
+
+function readResource<T extends { id: ID }>(resource: ResourceName) {
   const base = `/api/${resource}/`;
   return {
-    list: (token?: string | null, query?: RequestOptions["query"]) => apiRequest<ApiList<T>>(base, { token, query }).then((payload) => normalizePayload(resource, payload)),
+    list: (token?: string | null, query?: ListQuery) => apiRequest<ApiList<T>>(base, { token, query }).then((payload) => normalizePayload(resource, payload)),
     get: (id: ID, token?: string | null) => apiRequest<T>(`${base}${id}/`, { token }).then((payload) => normalizePayload(resource, payload)),
+  };
+}
+
+function writeResource<T extends { id: ID }>(resource: ResourceName) {
+  const base = `/api/${resource}/`;
+  return {
+    ...readResource<T>(resource),
     create: (data: Partial<T>, token?: string | null) => apiRequest<T>(base, { method: "POST", body: data, token }).then((payload) => normalizePayload(resource, payload)),
-    update: (id: ID, data: Partial<T>, token?: string | null) => apiRequest<T>(`${base}${id}/`, { method: "PUT", body: data, token }).then((payload) => normalizePayload(resource, payload)),
     patch: (id: ID, data: Partial<T>, token?: string | null) => apiRequest<T>(`${base}${id}/`, { method: "PATCH", body: data, token }).then((payload) => normalizePayload(resource, payload)),
     delete: (id: ID, token?: string | null) => apiRequest<void>(`${base}${id}/`, { method: "DELETE", token }),
   };
 }
 
-export const callsApi = resourceApi<Call>("calls");
-export const analysesApi = resourceApi<Analysis>("analyses");
-export const transcriptsApi = resourceApi<Transcript>("transcripts");
-export const clientsApi = resourceApi<Client>("clients");
-export const leadsApi = resourceApi<Lead>("leads");
-export const leadStatusesApi = resourceApi<LeadStatus>("lead-statuses");
-export const fieldDefinitionsApi = resourceApi<FieldDefinition>("field-definitions");
+// Calls, transcripts and analyses are produced by the backend pipeline: read-only.
+export const callsApi = readResource<Call>("calls");
+export const analysesApi = readResource<Analysis>("analyses");
+export const transcriptsApi = readResource<Transcript>("transcripts");
+
+export const clientsApi = writeResource<Client>("clients");
+export const leadsApi = writeResource<Lead>("leads");
+export const leadStatusesApi = writeResource<LeadStatus>("lead-statuses");
+/** DELETE on a field definition is a soft delete: it flips `is_active` to false. */
+export const fieldDefinitionsApi = writeResource<FieldDefinition>("field-definitions");

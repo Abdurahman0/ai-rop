@@ -18,7 +18,7 @@ export function useApiItem<T>(
   id: ID,
   fallback?: T,
 ): ItemState<T> {
-  const { accessToken, refresh } = useAuthStore();
+  const accessToken = useAuthStore((state) => state.accessToken);
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,29 +27,21 @@ export function useApiItem<T>(
     setLoading(true);
     setError(null);
     try {
-      setData(await loader(id, accessToken));
+      setData(await loader(id));
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        const token = await refresh();
-        if (token) {
-          setData(await loader(id, token));
-          setLoading(false);
-          return;
-        }
-      }
       setData(DEMO_MODE && fallback ? fallback : null);
       setError(err instanceof ApiError ? err.friendlyMessage : err instanceof Error ? err.message : "errors.loadData");
     } finally {
       setLoading(false);
     }
-  }, [accessToken, fallback, id, loader, refresh]);
+  }, [fallback, id, loader]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       void load();
     });
     return () => cancelAnimationFrame(frame);
-  }, [load]);
+  }, [accessToken, load]);
 
   return { data, loading, error, reload: load };
 }

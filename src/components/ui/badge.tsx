@@ -15,17 +15,28 @@ export function Badge({ children, tone = "neutral" }: { children: React.ReactNod
   return <span className={`inline-flex h-6 items-center rounded-md border px-2 text-xs font-medium ${tones[tone]}`}>{children}</span>;
 }
 
-export function StatusBadge({ value, color }: { value?: string; color?: string }) {
-  const upper = value?.toUpperCase();
-  const tone = upper === "DONE" ? "success" : upper === "ERROR" ? "danger" : upper === "PROCESSING" ? "warning" : "neutral";
+/** Pipeline stages reported by the backend, mapped onto a badge tone. */
+const stageTones: Record<string, keyof typeof tones> = {
+  received: "neutral",
+  audio_stored: "neutral",
+  transcribing: "warning",
+  transcribed: "neutral",
+  analyzing: "warning",
+  analyzed: "ai",
+  completed: "success",
+  failed: "danger",
+};
+
+export function StatusBadge({ value, color, title, label }: { value?: string; color?: string; title?: string; label?: string }) {
+  const tone = stageTones[value?.toLowerCase() ?? ""] ?? "neutral";
   if (color) {
     return (
-      <span className="inline-flex h-6 items-center rounded-md border px-2 text-xs font-medium" style={{ borderColor: `${color}55`, backgroundColor: `${color}18`, color }}>
-        {titleCase(value)}
+      <span className="inline-flex h-6 items-center rounded-md border px-2 text-xs font-medium" title={title} style={{ borderColor: `${color}55`, backgroundColor: `${color}18`, color }}>
+        {label ?? titleCase(value)}
       </span>
     );
   }
-  return <Badge tone={tone}>{titleCase(value)}</Badge>;
+  return <span title={title}><Badge tone={tone}>{label ?? titleCase(value)}</Badge></span>;
 }
 
 export function ScoreBadge({ score }: { score?: number | string | null }) {

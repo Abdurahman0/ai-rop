@@ -130,7 +130,8 @@
     "noLeadsDescription": "Создайте лид или дождитесь, пока AI найдёт возможность.",
     "chartDate": "Дата",
     "chartCalls": "Звонки",
-    "chartAiReviews": "AI-обзоры"
+    "chartAiReviews": "AI-обзоры",
+    "scoringUnavailable": "Оценка менеджеров пока не формируется бэкендом, поэтому баллов нет."
   },
   "calls": {
     "title": "Звонки",
@@ -152,7 +153,22 @@
     "started": "Начало",
     "duration": "Длительность",
     "aiScore": "AI-балл",
-    "action": "Действие"
+    "action": "Действие",
+    "stages": {
+      "received": "Получен",
+      "audio_stored": "Аудио сохранено",
+      "transcribing": "Расшифровка",
+      "transcribed": "Расшифрован",
+      "analyzing": "Анализ",
+      "analyzed": "Проанализирован",
+      "completed": "Завершён",
+      "failed": "Ошибка"
+    },
+    "directions": {
+      "inbound": "Входящий",
+      "outbound": "Исходящий",
+      "unknown": "Неизвестно"
+    }
   },
   "intelligence": {
     "reviewsTitle": "AI-обзоры",
@@ -185,7 +201,13 @@
     "providerNotRecorded": "Провайдер не записан",
     "fullTranscript": "Полный транскрипт",
     "speaker": "Спикер {number}",
-    "noTranscriptText": "Текст транскрипта недоступен."
+    "noTranscriptText": "Текст транскрипта недоступен.",
+    "skip": {
+      "no_client_phone": "Нет номера клиента",
+      "no_lead_intent": "Интерес не обнаружен",
+      "insufficient_data": "Недостаточно данных",
+      "no_default_status": "Не настроен статус по умолчанию"
+    }
   },
   "resources": {
     "leadsTitle": "Лиды",
@@ -302,7 +324,17 @@
     "relatedLeads": "Связанные лиды",
     "relatedCalls": "Связанные звонки",
     "relationshipHint": "Доступно, когда backend возвращает связи клиента/лида.",
-    "matchingCallsHint": "Доступно через совпадение телефона клиента и записей звонков."
+    "matchingCallsHint": "Доступно через совпадение телефона клиента и записей звонков.",
+    "system": "Системное",
+    "inactive": "Неактивно",
+    "keyHint": "Постоянный ключ внутри custom_data. Изменить позже нельзя.",
+    "fieldImmutableHint": "Ключ, сущность и тип нельзя изменить. Название, порядок, обязательность и подсказку — можно.",
+    "phoneHint": "Сохраняется в международном формате, уникален в рамках компании.",
+    "fieldDeactivated": "Поле отключено. Сохранённые значения остаются.",
+    "leadMoved": "Лид перемещён в «{status}».",
+    "moveLeadError": "Не удалось изменить статус лида.",
+    "dropHere": "Перетащите лид сюда",
+    "dragHint": "Перетащите карточку, чтобы сменить статус"
   },
   "appearance": {
     "title": "Внешний вид",
@@ -425,7 +457,8 @@
     "loadError": "Не удалось загрузить транскрипт",
     "loading": "Загрузка транскрипта",
     "focusSegment": "Выделить сегмент транскрипта",
-    "activeSegment": "Выбранный сегмент"
+    "activeSegment": "Выбранный сегмент",
+    "speaker": "Говорящий {number}"
   },
   "greeting": {
     "morning": "Доброе утро",
@@ -460,5 +493,13 @@
       "mahsulot": "Товар",
       "product": "Товар"
     }
+  },
+  "fields": {
+    "customFields": "Дополнительные поля",
+    "customFieldsHint": "Определяются вашей компанией в разделе «Настройки → Поля».",
+    "noneDefined": "Для этого типа записи активных полей не задано.",
+    "requiredError": "Обязательное поле.",
+    "numberError": "Введите корректное число.",
+    "dateError": "Используйте формат ГГГГ-ММ-ДД."
   }
 }

@@ -130,7 +130,8 @@
     "noLeadsDescription": "Create a lead or wait for AI to identify a potential opportunity.",
     "chartDate": "Date",
     "chartCalls": "Calls",
-    "chartAiReviews": "AI Reviews"
+    "chartAiReviews": "AI Reviews",
+    "scoringUnavailable": "Salesperson scoring is not produced by the backend yet, so reviews stay unscored."
   },
   "calls": {
     "title": "Calls",
@@ -152,7 +153,22 @@
     "started": "Started",
     "duration": "Duration",
     "aiScore": "AI Score",
-    "action": "Action"
+    "action": "Action",
+    "stages": {
+      "received": "Received",
+      "audio_stored": "Audio stored",
+      "transcribing": "Transcribing",
+      "transcribed": "Transcribed",
+      "analyzing": "Analyzing",
+      "analyzed": "Analyzed",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "directions": {
+      "inbound": "Inbound",
+      "outbound": "Outbound",
+      "unknown": "Unknown"
+    }
   },
   "intelligence": {
     "reviewsTitle": "AI Reviews",
@@ -185,7 +201,13 @@
     "providerNotRecorded": "Provider not recorded",
     "fullTranscript": "Full Transcript",
     "speaker": "Speaker {number}",
-    "noTranscriptText": "No transcript text is available."
+    "noTranscriptText": "No transcript text is available.",
+    "skip": {
+      "no_client_phone": "No client phone number",
+      "no_lead_intent": "No lead intent detected",
+      "insufficient_data": "Insufficient data",
+      "no_default_status": "No default lead status configured"
+    }
   },
   "resources": {
     "leadsTitle": "Leads",
@@ -302,7 +324,17 @@
     "relatedLeads": "Related Leads",
     "relatedCalls": "Related Calls",
     "relationshipHint": "Available when returned by client/lead relationships",
-    "matchingCallsHint": "Available through matching client phone and call records"
+    "matchingCallsHint": "Available through matching client phone and call records",
+    "system": "System",
+    "inactive": "Inactive",
+    "keyHint": "Permanent identifier inside custom_data. It cannot be changed later.",
+    "fieldImmutableHint": "Key, entity and type are fixed after creation. Label, order, requirement and AI hint stay editable.",
+    "phoneHint": "Saved in international format, unique per company.",
+    "fieldDeactivated": "Field deactivated. Existing values are kept.",
+    "leadMoved": "Lead moved to {status}.",
+    "moveLeadError": "The lead status could not be updated.",
+    "dropHere": "Drop a lead here",
+    "dragHint": "Drag a card to change its status"
   },
   "appearance": {
     "title": "Appearance",
@@ -425,7 +457,8 @@
     "loadError": "Unable to load transcript",
     "loading": "Loading transcript",
     "focusSegment": "Focus transcript segment",
-    "activeSegment": "Selected segment"
+    "activeSegment": "Selected segment",
+    "speaker": "Speaker {number}"
   },
   "greeting": {
     "morning": "Good morning",
@@ -460,5 +493,13 @@
       "mahsulot": "Product",
       "product": "Product"
     }
+  },
+  "fields": {
+    "customFields": "Custom fields",
+    "customFieldsHint": "Defined by your company in Settings → Custom fields.",
+    "noneDefined": "No active custom fields are defined for this record type.",
+    "requiredError": "This field is required.",
+    "numberError": "Enter a valid number.",
+    "dateError": "Use the YYYY-MM-DD format."
   }
 }

@@ -2,12 +2,13 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useT } from "@/i18n/use-t";
+import { PAGE_SIZE } from "@/lib/api/client";
 import { Button } from "./button";
 
 export function Pagination({
   page,
   count,
-  pageSize = 20,
+  pageSize = PAGE_SIZE,
   onPageChange,
 }: {
   page: number;

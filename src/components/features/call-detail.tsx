@@ -7,10 +7,10 @@ import { analysesApi, callsApi, transcriptsApi } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
 import { demoAnalyses, demoCalls, demoTranscripts } from "@/lib/data/demo";
-import { displayPerson, objectId, titleCase } from "@/lib/utils/format";
+import { displayPerson, objectId, parseSkipReason, speakerIndex, titleCase } from "@/lib/utils/format";
 import { useApiItem } from "@/hooks/use-api-item";
 import { useApiResource } from "@/hooks/use-api-resource";
-import type { Analysis, Call, Transcript, TranscriptSegment } from "@/types/domain";
+import { CALL_DIRECTIONS, CALL_STAGES, SKIP_REASONS, type Analysis, type Call, type Transcript, type TranscriptSegment } from "@/types/domain";
 import { Badge, ScoreBadge, StatusBadge } from "@/components/ui/badge";
 import { AIScore, aiScoreLabel } from "@/components/ui/ai-score";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -40,7 +40,10 @@ function InsightShell({ tone, children }: { tone: "positive" | "attention" | "cr
   return <div className={`rounded-lg border p-4 ${styles[tone]}`}>{children}</div>;
 }
 
-function normalizeSpeaker(speaker: string | undefined, t: (key: string) => string) {
+function normalizeSpeaker(speaker: string | undefined, t: (key: string, vars?: Record<string, string | number>) => string) {
+  // Provider-indexed labels carry no role information — keep them neutral.
+  const index = speakerIndex(speaker);
+  if (index !== null) return { label: t("transcript.speaker", { number: index }), side: "unknown" as const };
   const normalized = speaker?.toLowerCase() ?? "";
   if (/(client|customer|buyer|lead|клиент|mijoz)/.test(normalized)) return { label: t("transcript.client"), side: "client" as const };
   if (/(seller|sales|operator|agent|manager|менеджер|оператор|sotuvchi)/.test(normalized)) return { label: t("transcript.sales"), side: "sales" as const };
@@ -162,6 +165,8 @@ export function CallDetail({ id }: { id: string }) {
   const analysis = analyses.data.find((item) => String(objectId(item.call)) === String(call?.id));
   const transcript = transcripts.data.find((item) => String(objectId(item.call)) === String(call?.id));
   const scoreValue = analysis?.overall_score === null || analysis?.overall_score === undefined ? null : Number(analysis.overall_score);
+  const skip = parseSkipReason(analysis?.skip_reason);
+  const skipLabel = skip ? ((SKIP_REASONS as readonly string[]).includes(skip.code) ? t(`intelligence.skip.${skip.code}`) : skip.code) : "";
 
   if (callItem.loading) return <TranscriptSkeleton />;
   if (callItem.error) return <ErrorState title={t("callDetail.loadError")} description={callItem.error} onRetry={callItem.reload} />;
@@ -175,8 +180,8 @@ export function CallDetail({ id }: { id: string }) {
           {t("callDetail.back")}
         </Link>
         <div className="flex items-center gap-2">
-          <StatusBadge value={call.stage} />
-          <Badge tone="ai">{titleCase(call.direction)}</Badge>
+          <StatusBadge value={call.stage} label={(CALL_STAGES as readonly string[]).includes(call.stage ?? "") ? t(`calls.stages.${call.stage}`) : undefined} title={call.stage === "failed" ? call.error ?? undefined : undefined} />
+          <Badge tone={call.direction && call.direction !== "unknown" ? "ai" : "neutral"}>{(CALL_DIRECTIONS as readonly string[]).includes(call.direction ?? "") ? t(`calls.directions.${call.direction}`) : titleCase(call.direction)}</Badge>
         </div>
       </div>
       <section className="mb-4 rounded-lg border border-border bg-card p-5 shadow-sm">
@@ -201,7 +206,8 @@ export function CallDetail({ id }: { id: string }) {
             <CardContent className="p-5">
               <div className="space-y-3 text-sm">
               <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.direction")}</span><Badge tone="ai">{titleCase(call.direction)}</Badge></div>
-              <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.stage")}</span><StatusBadge value={call.stage} /></div>
+              <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.stage")}</span><StatusBadge value={call.stage} label={(CALL_STAGES as readonly string[]).includes(call.stage ?? "") ? t(`calls.stages.${call.stage}`) : undefined} /></div>
+              {call.stage === "failed" && call.error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">{call.error}</div> : null}
               <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.provider")}</span><span className="font-medium">{call.provider ?? t("common.notRecorded")}</span></div>
               <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.aiModel")}</span><span className="text-right font-medium">{analysis?.model_name ?? t("common.notRecorded")}</span></div>
               <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.reviewTime")}</span><span className="text-right font-medium">{formatDate(analysis?.created_at)}</span></div>
@@ -237,7 +243,10 @@ export function CallDetail({ id }: { id: string }) {
                   <span className="text-sm font-medium">{t("callDetail.leadCreated")}</span>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">{analysis?.skip_reason ?? t("callDetail.noLead")}</p>
+                <div className="text-sm text-muted-foreground">
+                  <p>{t("callDetail.noLead")}</p>
+                  {skip ? <p className="mt-1 text-foreground">{skip.detail ? `${skipLabel}: ${skip.detail}` : skipLabel}</p> : null}
+                </div>
               )}
             </CardContent>
           </Card>

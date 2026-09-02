@@ -10,6 +10,7 @@ import { objectId, titleCase } from "@/lib/utils/format";
 import { useApiResource } from "@/hooks/use-api-resource";
 import type { Call } from "@/types/domain";
 import { Badge, StatusBadge } from "@/components/ui/badge";
+import { CALL_DIRECTIONS, CALL_STAGES } from "@/types/domain";
 import { AIScore } from "@/components/ui/ai-score";
 import { Card } from "@/components/ui/card";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -44,7 +45,7 @@ export function CallsPage() {
       <PageHeader
         title={t("calls.title")}
         description={t("calls.description")}
-        actions={<><DatePicker value={date} onChange={setDate} /><Select label={t("calls.direction")} value={direction} onChange={setDirection} options={[{ label: t("common.all"), value: "" }, { label: t("calls.inbound"), value: "inbound" }, { label: t("calls.outbound"), value: "outbound" }]} /><Select label={t("calls.stage")} value={stage} onChange={setStage} options={[{ label: t("common.all"), value: "" }, { label: t("calls.new"), value: "new" }, { label: t("calls.processing"), value: "processing" }, { label: t("calls.done"), value: "done" }, { label: t("calls.error"), value: "error" }]} /></>}
+        actions={<><DatePicker value={date} onChange={setDate} /><Select label={t("calls.direction")} value={direction} onChange={setDirection} options={[{ label: t("common.all"), value: "" }, { label: t("calls.inbound"), value: "inbound" }, { label: t("calls.outbound"), value: "outbound" }]} /><Select label={t("calls.stage")} value={stage} onChange={setStage} options={[{ label: t("common.all"), value: "" }, ...CALL_STAGES.map((value) => ({ label: t(`calls.stages.${value}`), value }))]} /></>}
       />
       <Card>
         <div className="border-b border-border p-4"><SearchInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("calls.searchPlaceholder")} /></div>
@@ -56,10 +57,10 @@ export function CallsPage() {
             columns={[
               { header: t("calls.clientPhone"), cell: (row) => row.client_phone ?? t("common.unknown") },
               { header: t("calls.operator"), cell: (row) => row.operator ?? t("common.unassigned") },
-              { header: t("calls.direction"), cell: (row) => <Badge tone="ai">{titleCase(row.direction)}</Badge> },
+              { header: t("calls.direction"), cell: (row) => { const direction = row.direction ?? "unknown"; const known = (CALL_DIRECTIONS as readonly string[]).includes(direction); return <Badge tone={known && direction !== "unknown" ? "ai" : "neutral"}>{known ? t(`calls.directions.${direction}`) : titleCase(direction)}</Badge>; } },
               { header: t("calls.started"), cell: (row) => formatDate(row.started_at) },
               { header: t("calls.duration"), cell: (row) => formatDuration(row.duration) },
-              { header: t("calls.stage"), cell: (row) => <StatusBadge value={row.stage} /> },
+              { header: t("calls.stage"), cell: (row) => <StatusBadge value={row.stage} label={(CALL_STAGES as readonly string[]).includes(row.stage ?? "") ? t(`calls.stages.${row.stage}`) : undefined} title={row.stage === "failed" ? row.error ?? undefined : undefined} /> },
               { header: t("calls.aiScore"), cell: (row: Call) => {
                 const score = analyses.data.find((analysis) => objectId(analysis.call) === row.id)?.overall_score;
                 return score === null || score === undefined ? <span className="text-xs text-muted-foreground">{t("common.notAnalyzed")}</span> : <AIScore score={score} size="sm" />;

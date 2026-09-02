@@ -9,8 +9,15 @@ export type Paginated<T> = {
 
 export type ApiList<T> = Paginated<T> | T[];
 
-export type CallStage = "received" | "audio_stored" | "transcribing" | "transcribed" | "analyzing" | "analyzed" | "completed" | "failed" | string;
-export type CallDirection = "inbound" | "outbound" | "unknown" | string;
+/** The backend pipeline state machine, in order. `failed` ends it early. */
+export const CALL_STAGES = ["received", "audio_stored", "transcribing", "transcribed", "analyzing", "analyzed", "completed", "failed"] as const;
+export const CALL_DIRECTIONS = ["inbound", "outbound", "unknown"] as const;
+
+/** Why an analysis did not open a lead. `insufficient_data` carries a suffix. */
+export const SKIP_REASONS = ["no_client_phone", "no_lead_intent", "insufficient_data", "no_default_status"] as const;
+
+export type CallStage = (typeof CALL_STAGES)[number] | string;
+export type CallDirection = (typeof CALL_DIRECTIONS)[number] | string;
 
 export type Call = {
   id: ID;

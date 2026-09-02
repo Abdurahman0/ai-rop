@@ -61,7 +61,9 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const errorMessage = error?.includes(".") ? t(error) : error;
+  // The store stores either a translation key ("auth.invalidCredentials") or a
+  // ready-made backend sentence (403: the account belongs to no company).
+  const errorMessage = error && /^[a-z][a-zA-Z]*(\.[a-zA-Z]+)+$/.test(error) ? t(error) : error;
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();

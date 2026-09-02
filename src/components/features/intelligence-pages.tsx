@@ -1,14 +1,15 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { analysesApi, callsApi, transcriptsApi } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
 import { demoAnalyses, demoCalls, demoTranscripts } from "@/lib/data/demo";
-import { objectId } from "@/lib/utils/format";
+import { objectId, parseSkipReason, speakerIndex } from "@/lib/utils/format";
 import { useApiItem } from "@/hooks/use-api-item";
 import { useApiResource } from "@/hooks/use-api-resource";
-import type { TranscriptSegment } from "@/types/domain";
+import { SKIP_REASONS, type TranscriptSegment } from "@/types/domain";
 import { Badge, ScoreBadge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
@@ -21,28 +22,47 @@ export function AIReviewsPage() {
   const router = useRouter();
   const t = useT();
   const { formatDate } = useFormatters();
+  const [scoreFilter, setScoreFilter] = useState("");
+  const [leadFilter, setLeadFilter] = useState("");
   const analyses = useApiResource(analysesApi.list, demoAnalyses);
   const calls = useApiResource(callsApi.list, demoCalls);
+  const filtered = useMemo(
+    () =>
+      analyses.data.filter((analysis) => {
+        if (leadFilter === "yes" && !analysis.lead_created) return false;
+        if (leadFilter === "no" && analysis.lead_created) return false;
+        if (!scoreFilter) return true;
+        // overall_score is not produced by the backend yet: unscored rows drop
+        // out of every score filter rather than counting as zero.
+        const score = analysis.overall_score === null || analysis.overall_score === undefined ? null : Number(analysis.overall_score);
+        if (score === null || !Number.isFinite(score)) return false;
+        if (scoreFilter === "critical") return score < 70;
+        if (scoreFilter === "attention") return score >= 70 && score < 85;
+        return score >= 85;
+      }),
+    [analyses.data, leadFilter, scoreFilter],
+  );
+
   return (
     <>
-      <PageHeader title={t("intelligence.reviewsTitle")} description={t("intelligence.reviewsDescription")} actions={<><Select label={t("intelligence.score")} value="" onChange={() => undefined} options={[{ label: t("common.all"), value: "" }, { label: t("intelligence.critical"), value: "critical" }, { label: t("intelligence.attention"), value: "attention" }, { label: t("intelligence.strong"), value: "strong" }]} /><Select label={t("intelligence.leadCreated")} value="" onChange={() => undefined} options={[{ label: t("common.all"), value: "" }, { label: t("common.yes"), value: "yes" }, { label: t("common.no"), value: "no" }]} /></>} />
+      <PageHeader title={t("intelligence.reviewsTitle")} description={t("intelligence.reviewsDescription")} actions={<><Select label={t("intelligence.score")} value={scoreFilter} onChange={setScoreFilter} options={[{ label: t("common.all"), value: "" }, { label: t("intelligence.critical"), value: "critical" }, { label: t("intelligence.attention"), value: "attention" }, { label: t("intelligence.strong"), value: "strong" }]} /><Select label={t("intelligence.leadCreated")} value={leadFilter} onChange={setLeadFilter} options={[{ label: t("common.all"), value: "" }, { label: t("common.yes"), value: "yes" }, { label: t("common.no"), value: "no" }]} /></>} />
       <Card>
-        {analyses.loading ? <TableSkeleton /> : analyses.error ? <ErrorState title={t("intelligence.loadReviewsError")} description={analyses.error} onRetry={analyses.reload} /> : analyses.data.length === 0 ? <EmptyState title={t("intelligence.emptyReviewsTitle")} description={t("intelligence.emptyReviewsDescription")} /> : (
+        {analyses.loading ? <TableSkeleton /> : analyses.error ? <ErrorState title={t("intelligence.loadReviewsError")} description={analyses.error} onRetry={analyses.reload} /> : filtered.length === 0 ? <EmptyState title={t("intelligence.emptyReviewsTitle")} description={t("intelligence.emptyReviewsDescription")} /> : (
           <DataTable
-            data={analyses.data}
+            data={filtered}
             rowKey={(row) => String(row.id)}
             onRowClick={(row) => router.push(`/calls/${objectId(row.call) ?? row.id}`)}
             columns={[
               { header: t("intelligence.call"), cell: (row) => `#${objectId(row.call) ?? t("common.na")}` },
               { header: t("intelligence.summary"), cell: (row) => <span className="line-clamp-2">{row.summary ?? t("intelligence.noSummary")}</span> },
               { header: t("intelligence.score"), cell: (row) => <ScoreBadge score={row.overall_score} /> },
-              { header: t("intelligence.leadCreated"), cell: (row) => row.lead_created ? <Badge tone="success">{t("common.yes")}</Badge> : <Badge>{t("common.no")}</Badge> },
+              { header: t("intelligence.leadCreated"), cell: (row) => row.lead_created ? <Badge tone="success">{t("common.yes")}</Badge> : <span className="flex items-center gap-2"><Badge>{t("common.no")}</Badge><SkipReason reason={row.skip_reason} /></span> },
               { header: t("intelligence.model"), cell: (row) => row.model_name ?? t("common.notRecorded") },
               { header: t("intelligence.created"), cell: (row) => formatDate(row.created_at) },
             ]}
           />
         )}
-        {!analyses.loading && !analyses.error && analyses.data.length > 0 ? <Pagination page={analyses.meta.page} count={analyses.count} pageSize={analyses.meta.pageSize} onPageChange={analyses.setPage} /> : null}
+        {!analyses.loading && !analyses.error && filtered.length > 0 ? <Pagination page={analyses.meta.page} count={analyses.count} pageSize={analyses.meta.pageSize} onPageChange={analyses.setPage} /> : null}
       </Card>
       {!calls.error ? <div className="mt-4 grid gap-4 md:grid-cols-3">
         {calls.data.slice(0, 3).map((call) => (
@@ -54,6 +74,16 @@ export function AIReviewsPage() {
       </div> : null}
     </>
   );
+}
+
+/** Renders why an analyzed call did not open a lead. */
+export function SkipReason({ reason }: { reason?: string | null }) {
+  const t = useT();
+  const parsed = parseSkipReason(reason);
+  if (!parsed) return null;
+  const known = (SKIP_REASONS as readonly string[]).includes(parsed.code);
+  const label = known ? t(`intelligence.skip.${parsed.code}`) : parsed.code;
+  return <span className="text-xs text-muted-foreground">{parsed.detail ? `${label}: ${parsed.detail}` : label}</span>;
 }
 
 export function TranscriptsPage() {
@@ -99,7 +129,7 @@ export function TranscriptDetail({ id }: { id: string }) {
         <CardContent className="space-y-3">
           {Array.isArray(transcript?.segments) ? (transcript.segments as TranscriptSegment[]).map((segment, index) => (
             <div key={index} className="rounded-lg border border-border bg-background/60 p-4">
-              <Badge tone={segment.speaker?.toLowerCase().includes("customer") ? "ai" : "neutral"}>{segment.speaker ?? t("intelligence.speaker", { number: index + 1 })}</Badge>
+              <Badge tone="neutral">{t("intelligence.speaker", { number: speakerIndex(segment.speaker) ?? index + 1 })}</Badge>
               <p className="mt-3 leading-7">{segment.text}</p>
             </div>
           )) : <p className="whitespace-pre-wrap leading-8">{transcript?.text ?? t("intelligence.noTranscriptText")}</p>}
