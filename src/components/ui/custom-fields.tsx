@@ -19,7 +19,8 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
  * `order`; the frontend never hardcodes custom field names.
  */
 export function useCustomFields(entityType: CustomEntity) {
-  const definitions = useApiResource(fieldDefinitionsApi.list, demoFields);
+  // Filtered server-side; only the sort is done here.
+  const definitions = useApiResource(fieldDefinitionsApi.list, demoFields, { entity_type: entityType, is_active: true });
   const fields = useMemo(
     () =>
       definitions.data
@@ -29,6 +30,8 @@ export function useCustomFields(entityType: CustomEntity) {
   );
   return { fields, loading: definitions.loading, error: definitions.error, reload: definitions.reload };
 }
+
+export type CustomFieldsSchema = ReturnType<typeof useCustomFields>;
 
 /** Seeds the form inputs from a record's stored `custom_data`. */
 export function initialCustomValues(fields: FieldDefinition[], customData?: Record<string, unknown> | null): CustomValues {

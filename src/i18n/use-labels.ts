@@ -20,8 +20,12 @@ export function useLabels() {
     createdVia: (value?: string | null) => fromEnum("createdVia", value),
     entityType: (value?: string | null) => fromEnum("entityType", value),
     fieldType: (value?: string | null) => fromEnum("fieldType", value),
-    /** Renders a user reference: a name when the API nests one, else `User #7`. */
-    person: (value?: unknown) => {
+    /**
+     * Renders a user reference. `detail` is the server's read-only expansion
+     * (`operator_detail` / `assigned_to_detail`); the raw id is the fallback.
+     */
+    person: (value?: unknown, detail?: { name?: string; username?: string; id?: string | number } | null) => {
+      if (detail) return detail.name || detail.username || t("common.userNumber", { id: String(detail.id ?? "") });
       if (value === null || value === undefined || value === "") return t("common.unassigned");
       if (typeof value === "object" && value !== null) {
         const record = value as { name?: string; username?: string; id?: string | number };

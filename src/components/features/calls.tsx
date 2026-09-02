@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { analysesApi, callsApi } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
 import { useLabels } from "@/i18n/use-labels";
 import { demoAnalyses, demoCalls } from "@/lib/data/demo";
-import { isSameDay, objectId } from "@/lib/utils/format";
+import { objectId } from "@/lib/utils/format";
 import { useApiResource } from "@/hooks/use-api-resource";
+import { useDebounced } from "@/hooks/use-debounced";
 import type { Call } from "@/types/domain";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { CALL_DIRECTIONS, CALL_STAGES } from "@/types/domain";
@@ -22,6 +23,15 @@ import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/states";
 import { Pagination } from "@/components/ui/pagination";
 import { PageHeader } from "@/components/shell/page-header";
 
+/** Inclusive day bounds in ISO-8601, for `started_after` / `started_before`. */
+function startOfDayISO(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0).toISOString();
+}
+
+function endOfDayISO(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).toISOString();
+}
+
 export function CallsPage() {
   const router = useRouter();
   const t = useT();
@@ -31,17 +41,17 @@ export function CallsPage() {
   const [direction, setDirection] = useState("");
   const [stage, setStage] = useState("");
   const [date, setDate] = useState<Date | null>(null);
-  const calls = useApiResource(callsApi.list, demoCalls);
+  const search = useDebounced(query);
+  // Filtering is server-side, so it spans every page rather than the first 50.
+  const calls = useApiResource(callsApi.list, demoCalls, {
+    search: search || undefined,
+    direction: direction || undefined,
+    stage: stage || undefined,
+    started_after: date ? startOfDayISO(date) : undefined,
+    started_before: date ? endOfDayISO(date) : undefined,
+  });
   const analyses = useApiResource(analysesApi.list, demoAnalyses);
-  const filtered = useMemo(
-    () =>
-      calls.data.filter((call) => {
-        const text = `${call.client_phone ?? ""} ${call.operator ?? ""}`.toLowerCase();
-        const onDate = !date || (call.started_at ? isSameDay(new Date(call.started_at), date) : false);
-        return text.includes(query.toLowerCase()) && (!direction || call.direction?.toLowerCase() === direction) && (!stage || call.stage?.toLowerCase() === stage) && onDate;
-      }),
-    [calls.data, date, direction, query, stage],
-  );
+  const filtered = calls.data;
 
   return (
     <>
@@ -59,7 +69,7 @@ export function CallsPage() {
             onRowClick={(row) => router.push(`/calls/${row.id}`)}
             columns={[
               { header: t("calls.clientPhone"), cell: (row) => row.client_phone ?? t("common.unknown") },
-              { header: t("calls.operator"), cell: (row) => labels.person(row.operator) },
+              { header: t("calls.operator"), cell: (row) => labels.person(row.operator, row.operator_detail) },
               { header: t("calls.direction"), cell: (row) => { const direction = row.direction ?? "unknown"; const known = (CALL_DIRECTIONS as readonly string[]).includes(direction); return <Badge tone={known && direction !== "unknown" ? "ai" : "neutral"}>{known ? t(`calls.directions.${direction}`) : direction}</Badge>; } },
               { header: t("calls.started"), cell: (row) => formatDate(row.started_at) },
               { header: t("calls.duration"), cell: (row) => formatDuration(row.duration) },

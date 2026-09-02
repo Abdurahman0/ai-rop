@@ -34,10 +34,10 @@ export function activeSegmentIndex(segments: TranscriptSegment[], time: number) 
 }
 
 /**
- * Loads the recording. A relative URL goes through the authenticated proxy, so
- * it is fetched as a blob — an `<audio src>` would not carry the bearer token.
- * Both pieces of state are tagged with the URL they belong to, so a change of
- * source is reflected during render instead of by a resetting effect.
+ * Loads the recording. Recordings are private, so the endpoint is called with
+ * the bearer token and played as a blob — an `<audio src>` cannot carry a
+ * header. Both pieces of state are tagged with the URL they belong to, so a
+ * change of source is reflected during render, not by a resetting effect.
  */
 function useAudioSource(src?: string | null) {
   const external = !!src && /^https?:\/\//.test(src);

@@ -26,6 +26,8 @@ export type Call = {
   direction?: CallDirection;
   client_phone?: string;
   operator?: ID | null;
+  /** Read-only expansion of `operator`; null when unassigned. */
+  operator_detail?: User | null;
   external_operator_id?: string;
   started_at?: string;
   duration_seconds?: number | null;
@@ -33,13 +35,8 @@ export type Call = {
   stage?: CallStage;
   error?: string | null;
   created_at?: string;
-  /**
-   * Playable recording. Not in the API contract yet — the pipeline stores audio
-   * (`audio_stored` stage) but does not expose a URL. The player renders only
-   * when one of these arrives, so the backend can add either name.
-   */
-  recording_url?: string | null;
-  audio_url?: string | null;
+  /** True when a recording exists at `/api/calls/{id}/audio/`. */
+  has_audio?: boolean;
 };
 
 export type Analysis = {
@@ -68,8 +65,6 @@ export type Transcript = {
   id: ID;
   call?: ID | Call;
   text?: string;
-  /** Same as `Call.recording_url`, if the backend hangs audio off the transcript. */
-  audio_url?: string | null;
   segments?: TranscriptSegment[] | Record<string, unknown> | unknown[] | null;
   provider?: string;
   created_at?: string;
@@ -87,15 +82,29 @@ export type Client = {
 
 export type Lead = {
   id: ID;
+  /** Writable ids. The `*_detail` twins are read-only expansions. */
   client?: ID | Client;
+  client_detail?: Client | null;
   status?: ID | LeadStatus;
+  status_detail?: LeadStatus | null;
   title?: string;
   custom_data?: Record<string, unknown> | null;
   source_call?: ID | Call | null;
   assigned_to?: ID | null;
+  assigned_to_detail?: User | null;
   created_via?: string;
   created_at?: string;
   updated_at?: string;
+};
+
+/** Company member. `name` falls back to the username when there is no full name. */
+export type User = {
+  id: ID;
+  username?: string;
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
 };
 
 export type LeadStatus = {
@@ -125,6 +134,7 @@ export type FieldDefinition = {
 
 export type ResourceName =
   | "analyses"
+  | "users"
   | "calls"
   | "clients"
   | "field-definitions"

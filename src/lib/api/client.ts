@@ -9,6 +9,7 @@ import type {
   LeadStatus,
   ResourceName,
   Transcript,
+  User,
 } from "@/types/domain";
 import { authBridge } from "./auth-bridge";
 
@@ -254,6 +255,17 @@ function writeResource<T extends { id: ID }>(resource: ResourceName) {
 export const callsApi = readResource<Call>("calls");
 export const analysesApi = readResource<Analysis>("analyses");
 export const transcriptsApi = readResource<Transcript>("transcripts");
+
+/**
+ * Call recordings are private: they are fetched with the bearer token from
+ * `/api/calls/{id}/audio/` and played as a blob, never as a plain `<audio src>`.
+ */
+export function callAudioPath(id: ID) {
+  return `/api/calls/${id}/audio/`;
+}
+
+/** Company members, for assignment dropdowns and resolving operator ids. */
+export const usersApi = readResource<User>("users");
 
 export const clientsApi = writeResource<Client>("clients");
 export const leadsApi = writeResource<Lead>("leads");

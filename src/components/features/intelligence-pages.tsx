@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { analysesApi, callsApi, transcriptsApi } from "@/lib/api/client";
+import { analysesApi, callAudioPath, callsApi, transcriptsApi } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
 import { useLabels } from "@/i18n/use-labels";
@@ -71,7 +71,7 @@ export function AIReviewsPage() {
         {calls.data.slice(0, 3).map((call) => (
           <Card key={call.id} className="p-4">
             <p className="text-sm font-medium">{t("dashboard.callNumber", { id: call.id })}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{labels.person(call.operator)} · {call.client_phone}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{labels.person(call.operator, call.operator_detail)} · {call.client_phone}</p>
           </Card>
         ))}
       </div> : null}
@@ -126,7 +126,7 @@ export function TranscriptDetail({ id }: { id: string }) {
   const callItem = useApiItem(callsApi.get, callId, demoCalls.find((item) => String(item.id) === String(callId)));
   const call = callItem.data;
   const segments = useMemo(() => (Array.isArray(transcript?.segments) ? (transcript.segments as TranscriptSegment[]) : []), [transcript]);
-  const audio = useTranscriptAudio(call?.recording_url ?? call?.audio_url ?? transcript?.audio_url);
+  const audio = useTranscriptAudio(call?.has_audio && callId ? callAudioPath(callId) : null);
   const playingIndex = audio.available ? activeSegmentIndex(segments, audio.currentTime) : -1;
   const listRef = useRef<HTMLDivElement>(null);
   const followRef = useRef(true);

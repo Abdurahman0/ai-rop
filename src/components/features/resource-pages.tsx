@@ -1,10 +1,10 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { ApiError, callsApi, clientsApi, fieldDefinitionsApi, leadsApi, leadStatusesApi, type FieldErrors } from "@/lib/api/client";
+import { ApiError, callsApi, clientsApi, fieldDefinitionsApi, leadsApi, leadStatusesApi, usersApi, type FieldErrors } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
 import { useLabels } from "@/i18n/use-labels";
@@ -12,9 +12,10 @@ import { demoCalls, demoClients, demoFields, demoLeads, demoStatuses } from "@/l
 import { objectId, resolveRef } from "@/lib/utils/format";
 import { useApiItem } from "@/hooks/use-api-item";
 import { useApiResource } from "@/hooks/use-api-resource";
+import { useDebounced } from "@/hooks/use-debounced";
 import { useAuthStore } from "@/stores/auth-store";
 import { useUiStore } from "@/stores/ui-store";
-import type { Client, FieldDefinition, ID, Lead, LeadStatus } from "@/types/domain";
+import type { Client, FieldDefinition, ID, Lead, LeadStatus, User } from "@/types/domain";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,6 +26,7 @@ import {
   initialCustomValues,
   useCustomFields,
   validateCustomValues,
+  type CustomFieldsSchema,
   type CustomValues,
 } from "@/components/ui/custom-fields";
 import { ConfirmDialog, Modal } from "@/components/ui/modal";
@@ -65,12 +67,20 @@ export function LeadsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
   const [confirm, setConfirm] = useState<Lead | null>(null);
-  const leads = useApiResource(leadsApi.list, demoLeads);
+  const debouncedSearch = useDebounced(search);
+  // Server-side: the filter applies to every page, not just the loaded one.
+  const leads = useApiResource(leadsApi.list, demoLeads, {
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
+  });
   const statuses = useApiResource(leadStatusesApi.list, demoStatuses);
   const clients = useApiResource(clientsApi.list, demoClients);
+  const users = useApiResource(usersApi.list, []);
+  // Fetched once for the page instead of once per modal instance.
+  const leadFields = useCustomFields("lead");
   const { accessToken } = useAuthStore();
   const { toast } = useUiStore();
-  const filtered = useMemo(() => leads.data.filter((lead) => `${lead.title ?? ""} ${lead.assigned_to ?? ""}`.toLowerCase().includes(search.toLowerCase()) && (!statusFilter || String(objectId(lead.status)) === statusFilter)), [leads.data, search, statusFilter]);
+  const filtered = leads.data;
 
   return (
     <>
@@ -83,10 +93,10 @@ export function LeadsPage() {
             rowKey={(row) => String(row.id)}
             onRowClick={(row) => router.push(`/leads/${row.id}`)}
             columns={[
-              { header: t("resources.title"), cell: (row) => row.title ?? t("resources.untitledLead") },
-              { header: t("resources.client"), cell: (row) => <ClientLabel client={resolveRef(row.client, clients.data)} id={objectId(row.client)} /> },
-              { header: t("resources.status"), cell: (row) => { const status = resolveRef(row.status, statuses.data); return <StatusBadge value={status?.name ?? `#${objectId(row.status) ?? ""}`} color={status?.color} />; } },
-              { header: t("resources.assigned"), cell: (row) => labels.person(row.assigned_to) },
+              { header: t("resources.title"), cell: (row) => <span className="line-clamp-2 max-w-md">{row.title ?? t("resources.untitledLead")}</span> },
+              { header: t("resources.client"), cell: (row) => <ClientLabel client={resolveRef(row.client, clients.data, row.client_detail)} id={objectId(row.client)} /> },
+              { header: t("resources.status"), cell: (row) => { const status = resolveRef(row.status, statuses.data, row.status_detail); return <StatusBadge value={status?.name ?? `#${objectId(row.status) ?? ""}`} color={status?.color} />; } },
+              { header: t("resources.assigned"), cell: (row) => labels.person(row.assigned_to, row.assigned_to_detail) },
               { header: t("resources.createdVia"), cell: (row) => row.created_via?.toLowerCase().includes("ai") ? <Badge tone="ai">{labels.createdVia(row.created_via)}</Badge> : labels.createdVia(row.created_via ?? "manual") },
               { header: t("resources.created"), cell: (row) => formatDate(row.created_at) },
               { header: t("common.actions"), cell: (row) => <div className="flex items-center gap-1"><button className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={(event) => { event.stopPropagation(); setEditing(row); }} aria-label={t("resources.editLead")}><Pencil className="h-4 w-4" /></button><button className="rounded-md p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10" onClick={(event) => { event.stopPropagation(); setConfirm(row); }} aria-label={t("resources.deleteLead")}><Trash2 className="h-4 w-4" /></button></div> },
@@ -113,8 +123,8 @@ export function LeadsPage() {
         )}
         {!leads.loading && !leads.error && filtered.length > 0 ? <Pagination page={leads.meta.page} count={leads.count} pageSize={leads.meta.pageSize} onPageChange={leads.setPage} /> : null}
       </Card>
-      <LeadModal open={open} clients={clients.data} statuses={statuses.data} onOpenChange={setOpen} onSave={async (payload) => { await leadsApi.create(payload, accessToken); toast({ title: t("resources.leadCreated"), tone: "success" }); await leads.reload(); }} />
-      <LeadModal open={!!editing} clients={clients.data} statuses={statuses.data} initial={editing ?? undefined} onOpenChange={(next) => !next && setEditing(null)} onSave={async (payload) => { if (!editing) return; await leadsApi.patch(editing.id, payload, accessToken); toast({ title: t("resources.leadUpdated"), tone: "success" }); await leads.reload(); setEditing(null); }} />
+      <LeadModal open={open} schema={leadFields} clients={clients.data} statuses={statuses.data} users={users.data} onOpenChange={setOpen} onSave={async (payload) => { await leadsApi.create(payload, accessToken); toast({ title: t("resources.leadCreated"), tone: "success" }); await leads.reload(); }} />
+      <LeadModal open={!!editing} schema={leadFields} clients={clients.data} statuses={statuses.data} users={users.data} initial={editing ?? undefined} onOpenChange={(next) => !next && setEditing(null)} onSave={async (payload) => { if (!editing) return; await leadsApi.patch(editing.id, payload, accessToken); toast({ title: t("resources.leadUpdated"), tone: "success" }); await leads.reload(); setEditing(null); }} />
       <ConfirmDialog open={!!confirm} onOpenChange={() => setConfirm(null)} title={t("resources.deleteLeadTitle")} description={t("resources.deleteLeadDescription")} confirmLabel={t("resources.deleteLead")} onConfirm={async () => { if (confirm) { await leadsApi.delete(confirm.id, accessToken); toast({ title: t("resources.leadDeleted"), tone: "success" }); await leads.reload(); } setConfirm(null); }} />
     </>
   );
@@ -182,11 +192,11 @@ function LeadKanban({ leads, statuses, clients, onOpen, onMove }: { leads: Lead[
                   className={`w-full cursor-grab rounded-md border border-border bg-card p-3 text-left text-sm transition duration-[var(--motion-fast)] hover:bg-muted active:cursor-grabbing ${moving === String(lead.id) ? "opacity-50" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium">{lead.title ?? t("resources.untitledLead")}</p>
+                    <p className="line-clamp-3 font-medium">{lead.title ?? t("resources.untitledLead")}</p>
                     {lead.created_via?.toLowerCase().includes("ai") ? <Badge tone="ai">AI</Badge> : null}
                   </div>
-                  <p className="mt-1 text-muted-foreground"><ClientLabel client={resolveRef(lead.client, clients)} id={objectId(lead.client)} /></p>
-                  <p className="mt-2 text-xs text-muted-foreground">{labels.person(lead.assigned_to)} · {formatDate(lead.created_at)}</p>
+                  <p className="mt-1 text-muted-foreground"><ClientLabel client={resolveRef(lead.client, clients, lead.client_detail)} id={objectId(lead.client)} /></p>
+                  <p className="mt-2 text-xs text-muted-foreground">{labels.person(lead.assigned_to, lead.assigned_to_detail)} · {formatDate(lead.created_at)}</p>
                 </div>
               ))}
               {column.length === 0 ? <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">{t("resources.dropHere")}</p> : null}
@@ -198,9 +208,9 @@ function LeadKanban({ leads, statuses, clients, onOpen, onMove }: { leads: Lead[
   );
 }
 
-function LeadModal({ open, onOpenChange, onSave, initial, clients, statuses }: { open: boolean; onOpenChange: (open: boolean) => void; onSave: (payload: Partial<Lead>) => Promise<void>; initial?: Lead; clients: Client[]; statuses: LeadStatus[] }) {
+function LeadModal({ open, onOpenChange, onSave, initial, clients, statuses, users, schema }: { open: boolean; onOpenChange: (open: boolean) => void; onSave: (payload: Partial<Lead>) => Promise<void>; initial?: Lead; clients: Client[]; statuses: LeadStatus[]; users: User[]; schema: CustomFieldsSchema }) {
   const t = useT();
-  const { fields, loading: fieldsLoading } = useCustomFields("lead");
+  const { fields, loading: fieldsLoading } = schema;
   const [title, setTitle] = useState("");
   const [clientId, setClientId] = useState("");
   const [statusId, setStatusId] = useState("");
@@ -230,7 +240,6 @@ function LeadModal({ open, onOpenChange, onSave, initial, clients, statuses }: {
     // Everything is validated in one pass so the form reports every problem at once.
     const validation = validateCustomValues(fields, values, t);
     const assigned = assignedTo.trim() === "" ? null : Number(assignedTo);
-    if (assigned !== null && !Number.isFinite(assigned)) validation.assigned_to = t("resources.assignedNumericError");
     if (!clientId) validation.client = t("fields.requiredError");
     if (!statusId) validation.status = t("fields.requiredError");
     setErrors(validation);
@@ -268,7 +277,14 @@ function LeadModal({ open, onOpenChange, onSave, initial, clients, statuses }: {
           <Field label={t("resources.client")} error={errors.client}><Select label={t("resources.client")} value={clientId} onChange={setClientId} options={[{ label: t("common.select"), value: "" }, ...clients.map((client) => ({ label: client.name ?? client.phone ?? `#${client.id}`, value: String(client.id) }))]} /></Field>
           <Field label={t("resources.status")} error={errors.status}><Select label={t("resources.status")} value={statusId} onChange={setStatusId} options={[{ label: t("common.select"), value: "" }, ...statuses.map((status) => ({ label: status.name ?? status.code ?? `#${status.id}`, value: String(status.id) }))]} /></Field>
         </div>
-        <Field label={t("resources.assignedOperatorId")} error={errors.assigned_to}><Input inputMode="numeric" value={assignedTo} onChange={(event) => setAssignedTo(event.target.value)} /></Field>
+        <Field label={t("resources.assignedOperator")} error={errors.assigned_to}>
+          <Select
+            label={t("resources.assignedOperator")}
+            value={assignedTo}
+            onChange={setAssignedTo}
+            options={[{ label: t("common.unassigned"), value: "" }, ...users.map((user) => ({ label: user.name || user.username || `#${user.id}`, value: String(user.id) }))]}
+          />
+        </Field>
         <div>
           <p className="text-sm font-medium">{t("fields.customFields")}</p>
           <p className="mb-3 text-xs text-muted-foreground">{t("fields.customFieldsHint")}</p>
@@ -290,10 +306,12 @@ export function ClientsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
   const [confirm, setConfirm] = useState<Client | null>(null);
-  const clients = useApiResource(clientsApi.list, demoClients);
+  const debouncedSearch = useDebounced(search);
+  const clients = useApiResource(clientsApi.list, demoClients, { search: debouncedSearch || undefined });
+  const clientFields = useCustomFields("client");
   const { accessToken } = useAuthStore();
   const { toast } = useUiStore();
-  const filtered = clients.data.filter((client) => `${client.name ?? ""} ${client.phone ?? ""}`.toLowerCase().includes(search.toLowerCase()));
+  const filtered = clients.data;
   return (
     <>
       <PageHeader title={t("resources.clientsTitle")} description={t("resources.clientsDescription")} actions={<Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>{t("resources.createClient")}</Button>} />
@@ -316,16 +334,16 @@ export function ClientsPage() {
         )}
         {!clients.loading && !clients.error && filtered.length > 0 ? <Pagination page={clients.meta.page} count={clients.count} pageSize={clients.meta.pageSize} onPageChange={clients.setPage} /> : null}
       </Card>
-      <ClientModal open={open} onOpenChange={setOpen} onSave={async (payload) => { await clientsApi.create(payload, accessToken); toast({ title: t("resources.clientCreated"), tone: "success" }); await clients.reload(); }} />
-      <ClientModal open={!!editing} initial={editing ?? undefined} onOpenChange={(next) => !next && setEditing(null)} onSave={async (payload) => { if (!editing) return; await clientsApi.patch(editing.id, payload, accessToken); toast({ title: t("resources.clientUpdated"), tone: "success" }); await clients.reload(); setEditing(null); }} />
+      <ClientModal open={open} schema={clientFields} onOpenChange={setOpen} onSave={async (payload) => { await clientsApi.create(payload, accessToken); toast({ title: t("resources.clientCreated"), tone: "success" }); await clients.reload(); }} />
+      <ClientModal open={!!editing} schema={clientFields} initial={editing ?? undefined} onOpenChange={(next) => !next && setEditing(null)} onSave={async (payload) => { if (!editing) return; await clientsApi.patch(editing.id, payload, accessToken); toast({ title: t("resources.clientUpdated"), tone: "success" }); await clients.reload(); setEditing(null); }} />
       <ConfirmDialog open={!!confirm} onOpenChange={() => setConfirm(null)} title={t("resources.deleteClientTitle")} description={t("resources.deleteLeadDescription")} confirmLabel={t("resources.deleteClient")} onConfirm={async () => { if (confirm) { await clientsApi.delete(confirm.id, accessToken); toast({ title: t("resources.clientDeleted"), tone: "success" }); await clients.reload(); } setConfirm(null); }} />
     </>
   );
 }
 
-function ClientModal({ open, onOpenChange, onSave, initial }: { open: boolean; onOpenChange: (open: boolean) => void; onSave: (payload: Partial<Client>) => Promise<void>; initial?: Client }) {
+function ClientModal({ open, onOpenChange, onSave, initial, schema }: { open: boolean; onOpenChange: (open: boolean) => void; onSave: (payload: Partial<Client>) => Promise<void>; initial?: Client; schema: CustomFieldsSchema }) {
   const t = useT();
-  const { fields, loading: fieldsLoading } = useCustomFields("client");
+  const { fields, loading: fieldsLoading } = schema;
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [values, setValues] = useState<CustomValues>({});
@@ -585,8 +603,8 @@ export function LeadDetail({ id }: { id: string }) {
   if (leadItem.error) return <ErrorState title={t("resources.loadLeadError")} description={leadItem.error} onRetry={leadItem.reload} />;
   if (!lead) return <EmptyState title={t("resources.leadNotFound")} description={t("resources.leadNotFoundDescription")} />;
 
-  const client = resolveRef(lead.client, clients.data);
-  const status = resolveRef(lead.status, statuses.data);
+  const client = resolveRef(lead.client, clients.data, lead.client_detail);
+  const status = resolveRef(lead.status, statuses.data, lead.status_detail);
   const sourceCall = objectId(lead.source_call);
   return (
     <DetailLayout
@@ -594,7 +612,7 @@ export function LeadDetail({ id }: { id: string }) {
       sections={[
         [t("resources.client"), client ? <Link key="client" className="text-primary hover:underline" href={`/clients/${client.id}`}>{client.name || client.phone || `#${client.id}`}</Link> : <ClientLabel key="client" id={objectId(lead.client)} />],
         [t("resources.status"), <StatusBadge key="status" value={status?.name ?? `#${objectId(lead.status) ?? ""}`} color={status?.color} />],
-        [t("resources.assignedOperator"), labels.person(lead.assigned_to)],
+        [t("resources.assignedOperator"), labels.person(lead.assigned_to, lead.assigned_to_detail)],
         [t("resources.sourceCall"), sourceCall ? <Link key="call" className="text-primary hover:underline" href={`/calls/${sourceCall}`}>{t("dashboard.callNumber", { id: sourceCall })}</Link> : t("common.none")],
         [t("resources.createdVia"), labels.createdVia(lead.created_via ?? "manual")],
         [t("resources.created"), formatDate(lead.created_at)],
@@ -610,16 +628,17 @@ export function ClientDetail({ id }: { id: string }) {
   const labels = useLabels();
   const { formatDate } = useFormatters();
   const clientItem = useApiItem(clientsApi.get, id, demoClients.find((item) => String(item.id) === id));
-  const leads = useApiResource(leadsApi.list, demoLeads);
-  const calls = useApiResource(callsApi.list, demoCalls);
   const client = clientItem.data;
+  // Both scoped server-side: leads by client id, calls by normalized phone.
+  const leads = useApiResource(leadsApi.list, demoLeads, { client: client?.id }, !!client?.id);
+  const calls = useApiResource(callsApi.list, demoCalls, { client_phone: client?.phone }, !!client?.phone);
   if (clientItem.loading) return <TableSkeleton />;
   if (clientItem.error) return <ErrorState title={t("resources.loadClientError")} description={clientItem.error} onRetry={clientItem.reload} />;
   if (!client) return <EmptyState title={t("resources.clientNotFound")} description={t("resources.clientNotFoundDescription")} />;
 
-  const relatedLeads = leads.data.filter((lead) => String(objectId(lead.client)) === String(client.id));
-  // Calls carry no client FK, so they are matched on the normalized phone.
-  const relatedCalls = client.phone ? calls.data.filter((call) => call.client_phone === client.phone) : [];
+  const relatedLeads = leads.data;
+  // Calls carry no client FK; the API matches on the normalized phone.
+  const relatedCalls = client.phone ? calls.data : [];
   return (
     <DetailLayout
       title={client.name ?? client.phone ?? t("resources.client")}

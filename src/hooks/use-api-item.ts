@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { useAuthStore } from "@/stores/auth-store";
 import type { ID } from "@/types/domain";
@@ -25,6 +25,11 @@ export function useApiItem<T>(
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
+  const fallbackRef = useRef(fallback);
+  useEffect(() => {
+    fallbackRef.current = fallback;
+  });
+
   const load = useCallback(async () => {
     if (!enabled) return;
     setLoading(true);
@@ -32,12 +37,12 @@ export function useApiItem<T>(
     try {
       setData(await loader(id as ID));
     } catch (err) {
-      setData(DEMO_MODE && fallback ? fallback : null);
+      setData(DEMO_MODE && fallbackRef.current ? fallbackRef.current : null);
       setError(err instanceof ApiError ? err.friendlyMessage : err instanceof Error ? err.message : "errors.loadData");
     } finally {
       setLoading(false);
     }
-  }, [enabled, fallback, id, loader]);
+  }, [enabled, id, loader]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {

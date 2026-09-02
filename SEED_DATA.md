@@ -332,7 +332,15 @@ Format: `audio/wav`, `audio/mpeg` or `audio/ogg` — whatever the provider store
 call with the 30+ segment transcript from §7, and leave one `completed` call
 without audio so the no-recording path stays visible.
 
-## 9. Open questions — these block UI we cannot build
+## 9. Open questions — **all closed** in the 2026-09-02 handoff ✅
+
+`GET /api/users/`, the `*_detail` expansions, server-side filters/search/ordering
+and `has_audio` + `/api/calls/{id}/audio/` all landed and are wired. The original
+list is kept below for history.
+
+<details>
+<summary>Original open questions (now resolved)</summary>
+
 
 1. **Operator names.** `call.operator` and `lead.assigned_to` are user IDs, and
    there is no users endpoint in the guide. Every screen therefore shows
@@ -359,6 +367,8 @@ without audio so the no-recording path stays visible.
    "Recently created leads" assume newest-first from the API.
 
 ---
+
+</details>
 
 ## 10. How to verify once seeded
 

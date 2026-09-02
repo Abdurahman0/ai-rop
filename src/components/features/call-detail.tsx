@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, Clock, Phone, Sparkles, UserRound } from "lucide-react";
-import { analysesApi, callsApi, transcriptsApi } from "@/lib/api/client";
+import { analysesApi, callAudioPath, callsApi, transcriptsApi } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
 import { useLabels } from "@/i18n/use-labels";
@@ -14,7 +14,7 @@ import { useApiResource } from "@/hooks/use-api-resource";
 import { CALL_DIRECTIONS, CALL_STAGES, SKIP_REASONS, type Analysis, type Call, type Transcript, type TranscriptSegment } from "@/types/domain";
 import { Badge, ScoreBadge, StatusBadge } from "@/components/ui/badge";
 import { AIScore, aiScoreLabel } from "@/components/ui/ai-score";
-import { activeSegmentIndex, AudioPlayer, useTranscriptAudio } from "@/components/ui/audio-player";
+import { activeSegmentIndex, AudioPlayer, useTranscriptAudio, type TranscriptAudio } from "@/components/ui/audio-player";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ExtractedFields } from "@/components/ui/extracted-fields";
 import { AiEvaluationPanel } from "@/components/ui/structured-ai-data";
@@ -86,6 +86,7 @@ function TranscriptPanel({
   loading,
   error,
   onRetry,
+  audio,
 }: {
   call: Call;
   analysis?: Analysis;
@@ -93,6 +94,7 @@ function TranscriptPanel({
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  audio: TranscriptAudio;
 }) {
   const t = useT();
   const { formatDate, formatTime, formatDuration } = useFormatters();
@@ -101,8 +103,6 @@ function TranscriptPanel({
   const segments = useMemo(() => (Array.isArray(transcript?.segments) ? (transcript.segments as TranscriptSegment[]) : []), [transcript]);
   const hasTranscriptText = !!transcript?.text;
 
-  // The recording, when the backend exposes one, drives the transcript.
-  const audio = useTranscriptAudio(call.recording_url ?? call.audio_url ?? transcript?.audio_url);
   const playingIndex = audio.available ? activeSegmentIndex(segments, audio.currentTime) : -1;
   const listRef = useRef<HTMLDivElement>(null);
   const followRef = useRef(true);
@@ -121,12 +121,12 @@ function TranscriptPanel({
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-indigo-500">{t("transcript.conversation")}</p>
             <h2 className="mt-1 text-lg font-semibold text-foreground">{t("dashboard.callNumber", { id: call.id })}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{labels.person(call.operator)} · {call.client_phone ?? t("transcript.client")}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{labels.person(call.operator, call.operator_detail)} · {call.client_phone ?? t("transcript.client")}</p>
           </div>
           <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
             <CallMeta icon={<Clock className="h-4 w-4" />} label={t("transcript.date")} value={formatDate(call.started_at)} />
             <CallMeta icon={<Clock className="h-4 w-4" />} label={t("transcript.time")} value={formatTime(call.started_at)} />
-            <CallMeta icon={<Phone className="h-4 w-4" />} label={t("calls.duration")} value={formatDuration(call.duration)} />
+            <CallMeta icon={<Phone className="h-4 w-4" />} label={t("calls.duration")} value={formatDuration(call.duration || (audio.duration || null))} />
             <CallMeta icon={<Sparkles className="h-4 w-4" />} label={t("calls.aiScore")} value={<ScoreBadge score={analysis?.overall_score} />} />
           </div>
         </div>
@@ -192,6 +192,8 @@ export function CallDetail({ id }: { id: string }) {
   const { formatDate, formatDuration } = useFormatters();
   const labels = useLabels();
   const callItem = useApiItem(callsApi.get, id, demoCalls.find((item) => String(item.id) === id));
+  // Private recording, fetched with the token; drives the transcript below.
+  const audio = useTranscriptAudio(callItem.data?.has_audio ? callAudioPath(callItem.data.id) : null);
   const analyses = useApiResource(analysesApi.list, demoAnalyses);
   const transcripts = useApiResource(transcriptsApi.list, demoTranscripts);
   const call = callItem.data;
@@ -223,12 +225,12 @@ export function CallDetail({ id }: { id: string }) {
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-indigo-500">{t("callDetail.review")}</p>
             <h1 className="mt-2 text-2xl font-semibold tracking-normal text-foreground">{t("dashboard.callNumber", { id: call.id })}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{call.client_phone ?? t("callDetail.unknownPhone")} · {labels.person(call.operator)}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{call.client_phone ?? t("callDetail.unknownPhone")} · {labels.person(call.operator, call.operator_detail)}</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <CallMeta icon={<Phone className="h-4 w-4" />} label={t("callDetail.client")} value={call.client_phone ?? t("common.notRecorded")} />
-            <CallMeta icon={<UserRound className="h-4 w-4" />} label={t("callDetail.operator")} value={labels.person(call.operator)} />
-            <CallMeta icon={<Clock className="h-4 w-4" />} label={t("calls.duration")} value={formatDuration(call.duration)} />
+            <CallMeta icon={<UserRound className="h-4 w-4" />} label={t("callDetail.operator")} value={labels.person(call.operator, call.operator_detail)} />
+            <CallMeta icon={<Clock className="h-4 w-4" />} label={t("calls.duration")} value={formatDuration(call.duration || (audio.duration || null))} />
             <CallMeta icon={<Sparkles className="h-4 w-4" />} label={t("calls.started")} value={formatDate(call.started_at)} />
           </div>
         </div>
@@ -267,7 +269,7 @@ export function CallDetail({ id }: { id: string }) {
               <ExtractedFields value={analysis?.extracted_fields} />
             </CardContent>
           </Card>
-          <TranscriptPanel call={call} analysis={analysis} transcript={transcript} loading={transcripts.loading} error={transcripts.error} onRetry={transcripts.reload} />
+          <TranscriptPanel call={call} analysis={analysis} transcript={transcript} loading={transcripts.loading} error={transcripts.error} onRetry={transcripts.reload} audio={audio} />
           <Card>
             <CardHeader title={t("callDetail.leadResult")} />
             <CardContent>

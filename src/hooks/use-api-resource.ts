@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, PAGE_SIZE } from "@/lib/api/client";
 import { listOf } from "@/lib/utils/format";
 import { useAuthStore } from "@/stores/auth-store";
@@ -23,25 +23,47 @@ export function useApiResource<T>(
   loader: (token?: string | null, query?: Record<string, string | number | boolean | undefined | null>) => Promise<ApiList<T>>,
   fallback: T[],
   query?: Record<string, string | number | boolean | undefined | null>,
+  /** Skips the request until the caller has what the query needs. */
+  enabled = true,
 ): ResourceState<T> {
   const accessToken = useAuthStore((state) => state.accessToken);
+  // Callers pass filter objects inline, so the identity changes every render.
+  // Serializing gives the effect a stable dependency.
+  const queryKey = JSON.stringify(query ?? {});
+  const filters = useMemo(() => JSON.parse(queryKey) as typeof query, [queryKey]);
   const [page, setPage] = useState(Number(query?.page ?? 1));
+
+  // A changed filter invalidates the current page number. Adjusting state
+  // during render is the documented pattern for deriving from a changed input.
+  const [lastQueryKey, setLastQueryKey] = useState(queryKey);
+  if (lastQueryKey !== queryKey) {
+    setLastQueryKey(queryKey);
+    setPage(1);
+  }
   const [data, setData] = useState<T[]>([]);
   const [count, setCount] = useState(0);
   const [next, setNext] = useState<string | null>(null);
   const [previous, setPrevious] = useState<string | null>(null);
   const [isDemo, setIsDemo] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
+  // Held in a ref so an inline `[]` fallback cannot change the loader identity
+  // on every render — that would re-run the effect in a loop.
+  const fallbackRef = useRef(fallback);
+  useEffect(() => {
+    fallbackRef.current = fallback;
+  });
+
   const load = useCallback(async () => {
+    if (!enabled) return;
     setLoading(true);
     setError(null);
     setFailed(false);
     try {
       // The client attaches the token itself and refreshes it on a 401.
-      const payload = await loader(undefined, { ...query, page });
+      const payload = await loader(undefined, { ...filters, page });
       setData(listOf(payload));
       setCount(Array.isArray(payload) ? payload.length : payload.count ?? payload.results?.length ?? 0);
       setNext(Array.isArray(payload) ? null : payload.next ?? null);
@@ -49,8 +71,8 @@ export function useApiResource<T>(
       setIsDemo(false);
     } catch (err) {
       if (DEMO_MODE) {
-        setData(fallback);
-        setCount(fallback.length);
+        setData(fallbackRef.current);
+        setCount(fallbackRef.current.length);
         setIsDemo(true);
       } else {
         setData([]);
@@ -64,7 +86,7 @@ export function useApiResource<T>(
     } finally {
       setLoading(false);
     }
-  }, [fallback, loader, page, query]);
+  }, [enabled, filters, loader, page]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {

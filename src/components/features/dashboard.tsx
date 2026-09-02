@@ -219,7 +219,7 @@ export function Dashboard() {
                     <ScoreBadge score={insight.overall_score} />
                   </div>
                   <p className="font-medium">{insight.summary}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">{t("dashboard.seller")}: {labels.person(call?.operator)} · {t("dashboard.callNumber", { id: objectId(insight.call) ?? t("common.na") })} · {formatDate(insight.created_at)}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{t("dashboard.seller")}: {labels.person(call?.operator, call?.operator_detail)} · {t("dashboard.callNumber", { id: objectId(insight.call) ?? t("common.na") })} · {formatDate(insight.created_at)}</p>
                 </button>
               );
             })}
@@ -233,7 +233,7 @@ export function Dashboard() {
             onRowClick={(row) => router.push(`/calls/${row.id}`)}
             columns={[
               { header: t("resources.client"), cell: (row) => row.client_phone ?? t("common.unknown") },
-              { header: t("calls.operator"), cell: (row) => labels.person(row.operator) },
+              { header: t("calls.operator"), cell: (row) => labels.person(row.operator, row.operator_detail) },
               { header: t("calls.direction"), cell: (row) => { const direction = row.direction ?? "unknown"; const known = (CALL_DIRECTIONS as readonly string[]).includes(direction); return <Badge tone={known && direction !== "unknown" ? "ai" : "neutral"}>{known ? t(`calls.directions.${direction}`) : direction}</Badge>; } },
               { header: t("calls.duration"), cell: (row) => formatDuration(row.duration) },
               { header: t("calls.stage"), cell: (row) => <StatusBadge value={row.stage} label={(CALL_STAGES as readonly string[]).includes(row.stage ?? "") ? t(`calls.stages.${row.stage}`) : undefined} title={row.stage === "failed" ? row.error ?? undefined : undefined} /> },
@@ -257,8 +257,8 @@ export function Dashboard() {
                   <div className="space-y-2">
                     {leads.map((lead) => (
                       <div key={lead.id} className="rounded-md border border-border bg-card p-3 text-sm">
-                        <p className="font-medium">{lead.title}</p>
-                        <p className="mt-1 text-muted-foreground">{resolveRef(lead.client, clients.data)?.name ?? resolveRef(lead.client, clients.data)?.phone ?? t("common.unassigned")}</p>
+                        <p className="line-clamp-2 font-medium">{lead.title}</p>
+                        <p className="mt-1 text-muted-foreground">{resolveRef(lead.client, clients.data, lead.client_detail)?.name ?? resolveRef(lead.client, clients.data, lead.client_detail)?.phone ?? t("common.unassigned")}</p>
                       </div>
                     ))}
                   </div>
@@ -274,7 +274,7 @@ export function Dashboard() {
               <button key={lead.id} className="flex w-full items-center justify-between rounded-md border border-border p-3 text-left hover:bg-muted" onClick={() => router.push(`/leads/${lead.id}`)}>
                 <div>
                   <p className="text-sm font-medium">{lead.title}</p>
-                  <p className="text-xs text-muted-foreground">{resolveRef(lead.client, clients.data)?.name ?? resolveRef(lead.client, clients.data)?.phone ?? `#${objectId(lead.client) ?? ""}`}</p>
+                  <p className="text-xs text-muted-foreground">{resolveRef(lead.client, clients.data, lead.client_detail)?.name ?? resolveRef(lead.client, clients.data, lead.client_detail)?.phone ?? `#${objectId(lead.client) ?? ""}`}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {lead.created_via?.toLowerCase().includes("ai") ? <Badge tone="ai">{t("common.aiCreated")}</Badge> : null}
