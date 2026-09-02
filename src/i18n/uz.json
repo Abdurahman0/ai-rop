@@ -49,7 +49,8 @@
     "closeNavigation": "Navigatsiyani yopish",
     "toggleTheme": "Mavzuni almashtirish",
     "aiCreated": "AI yaratgan",
-    "search": "Qidirish"
+    "search": "Qidirish",
+    "userNumber": "Foydalanuvchi #{id}"
   },
   "nav": {
     "overview": "Umumiy",
@@ -87,7 +88,9 @@
   "shell": {
     "confirmLogoutTitle": "Chiqilsinmi?",
     "confirmLogoutDescription": "AI ROPga qayta kirish uchun yana tizimga kirasiz.",
-    "confirmLogout": "Chiqish"
+    "confirmLogout": "Chiqish",
+    "noCompanyTitle": "Bu hisobga kompaniya biriktirilmagan",
+    "noCompanyHint": "Administratordan foydalanuvchini kompaniyaga biriktirishni so‘rang va qayta kiring."
   },
   "dashboard": {
     "title": "{greeting}, Abdurahmon",
@@ -501,5 +504,21 @@
     "requiredError": "Bu maydon majburiy.",
     "numberError": "To‘g‘ri raqam kiriting.",
     "dateError": "YYYY-MM-DD formatidan foydalaning."
+  },
+  "enums": {
+    "createdVia": {
+      "manual": "Qo‘lda",
+      "call_ai": "Qo‘ng‘iroqdan AI"
+    },
+    "entityType": {
+      "lead": "Lead",
+      "client": "Mijoz"
+    },
+    "fieldType": {
+      "text": "Matn",
+      "number": "Raqam",
+      "date": "Sana",
+      "phone": "Telefon"
+    }
   }
 }

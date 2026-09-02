@@ -171,7 +171,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (response.status === 401) authBridge.onUnauthorized();
   }
 
-  if (!response.ok) throw await toApiError(response);
+  if (!response.ok) {
+    const error = await toApiError(response);
+    if (error.status === 403) authBridge.onForbidden(error.friendlyMessage);
+    throw error;
+  }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }

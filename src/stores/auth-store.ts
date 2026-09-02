@@ -10,6 +10,8 @@ type AuthState = {
   refreshToken: string | null;
   status: "idle" | "loading" | "authenticated" | "error";
   error: string | null;
+  /** Set when the backend refuses every endpoint because the user has no company. */
+  forbidden: string | null;
   login: (username: string, password: string) => Promise<void>;
   refresh: () => Promise<string | null>;
   logout: () => void;
@@ -22,11 +24,12 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       status: "idle",
       error: null,
+      forbidden: null,
       login: async (username, password) => {
         set({ status: "loading", error: null });
         try {
           const tokens = await authApi.login({ username, password });
-          set({ accessToken: tokens.access, refreshToken: tokens.refresh, status: "authenticated", error: null });
+          set({ accessToken: tokens.access, refreshToken: tokens.refresh, status: "authenticated", error: null, forbidden: null });
         } catch (error) {
           set({ status: "error", error: authErrorKey(error) });
           throw error;
@@ -50,7 +53,7 @@ export const useAuthStore = create<AuthState>()(
           return null;
         }
       },
-      logout: () => set({ accessToken: null, refreshToken: null, status: "idle", error: null }),
+      logout: () => set({ accessToken: null, refreshToken: null, status: "idle", error: null, forbidden: null }),
     }),
     {
       name: "ai-rop-auth",
@@ -78,4 +81,7 @@ setAuthBridge({
   getAccessToken: () => useAuthStore.getState().accessToken,
   refresh: () => useAuthStore.getState().refresh(),
   onUnauthorized: () => useAuthStore.getState().logout(),
+  onForbidden: (message) => {
+    if (useAuthStore.getState().forbidden !== message) useAuthStore.setState({ forbidden: message });
+  },
 });

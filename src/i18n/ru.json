@@ -49,7 +49,8 @@
     "closeNavigation": "Закрыть навигацию",
     "toggleTheme": "Переключить тему",
     "aiCreated": "Создано AI",
-    "search": "Поиск"
+    "search": "Поиск",
+    "userNumber": "Пользователь #{id}"
   },
   "nav": {
     "overview": "Обзор",
@@ -87,7 +88,9 @@
   "shell": {
     "confirmLogoutTitle": "Выйти?",
     "confirmLogoutDescription": "Чтобы снова открыть AI ROP, потребуется войти.",
-    "confirmLogout": "Выйти"
+    "confirmLogout": "Выйти",
+    "noCompanyTitle": "К этому аккаунту не привязана компания",
+    "noCompanyHint": "Попросите администратора привязать пользователя к компании и войдите снова."
   },
   "dashboard": {
     "title": "{greeting}, Абдурахмон",
@@ -501,5 +504,21 @@
     "requiredError": "Обязательное поле.",
     "numberError": "Введите корректное число.",
     "dateError": "Используйте формат ГГГГ-ММ-ДД."
+  },
+  "enums": {
+    "createdVia": {
+      "manual": "Вручную",
+      "call_ai": "ИИ по звонку"
+    },
+    "entityType": {
+      "lead": "Лид",
+      "client": "Клиент"
+    },
+    "fieldType": {
+      "text": "Текст",
+      "number": "Число",
+      "date": "Дата",
+      "phone": "Телефон"
+    }
   }
 }

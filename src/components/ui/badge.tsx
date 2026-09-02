@@ -32,7 +32,7 @@ export function StatusBadge({ value, color, title, label }: { value?: string; co
   if (color) {
     return (
       <span className="inline-flex h-6 items-center rounded-md border px-2 text-xs font-medium" title={title} style={{ borderColor: `${color}55`, backgroundColor: `${color}18`, color }}>
-        {label ?? titleCase(value)}
+        {label ?? value}
       </span>
     );
   }

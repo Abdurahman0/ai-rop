@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { MouseEvent, useEffect, useState } from "react";
-import { LogOut, Menu, Moon, RefreshCw, Sun, X } from "lucide-react";
+import { LogOut, Menu, Moon, RefreshCw, ShieldAlert, Sun, X } from "lucide-react";
 import { useT } from "@/i18n/use-t";
 import { useAuthStore } from "@/stores/auth-store";
 import { palettes, useAppearanceStore } from "@/stores/appearance-store";
@@ -86,7 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const t = useT();
-  const { accessToken, refreshToken, refresh, logout } = useAuthStore();
+  const { accessToken, refreshToken, refresh, logout, forbidden } = useAuthStore();
   const { theme, radius, colorPalette, backgroundPalette, surfacePalette, sidebarPalette, motion, setTheme } = useAppearanceStore();
   const { mobileNavOpen, setMobileNavOpen } = useUiStore();
   const [mounted, setMounted] = useState(false);
@@ -158,6 +158,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (!mounted) return null;
   if (pathname === "/login") return <>{children}</>;
+
+  // No company means every endpoint answers 403 — show one clear reason rather
+  // than a shell full of broken panels.
+  if (forbidden) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-sm">
+          <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 dark:border-red-500/30 dark:bg-red-500/10">
+            <ShieldAlert className="h-5 w-5" />
+          </div>
+          <h1 className="text-lg font-semibold text-foreground">{t("shell.noCompanyTitle")}</h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">{forbidden}</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("shell.noCompanyHint")}</p>
+          <Button className="mt-6 w-full" variant="primary" icon={<LogOut className="h-4 w-4" />} onClick={confirmLogout}>
+            {t("common.logout")}
+          </Button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

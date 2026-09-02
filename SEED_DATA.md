@@ -27,13 +27,26 @@ Plus **one resource with 60+ rows** (leads is easiest) so pagination is real, an
 
 ---
 
-## 1. Accounts to create
+## 1. Accounts — already created ✅
+
+Password for all of them: `demo12345`.
 
 | User | Company | Proves |
 | --- | --- | --- |
-| `demo@airop.uz` / known password | Demo LLC | the happy path |
-| `demo2@airop.uz` | Second LLC | tenancy — its data must be invisible to user 1 |
+| `demo@airop.uz` | Demo LLC | the happy path — this is the account the seed data hangs off |
+| `demo2@airop.uz` | Second LLC | tenancy — Demo LLC's rows must be invisible here |
 | `orphan@airop.uz` | **no company** | the documented `403` + its Uzbek `detail` string |
+| `operator1@airop.uz`, `operator2@airop.uz` | Demo LLC | operator-owned calls and assigned leads |
+
+The frontend now handles all five: the company-less user gets a single blocking
+screen carrying the backend's own message instead of a shell full of failed
+panels, and the operator accounts are the ones that should appear as
+`call.operator` / `lead.assigned_to` (see the open question in §9 — right now
+they can only be rendered as `User #7`).
+
+**Please make operator1/operator2 the owners of most seeded calls and leads.**
+An operator column that is 100% "Unassigned" is the single most visible hole in
+the demo.
 
 The frontend renders the backend's own `403` sentence on the login screen, so
 `"Foydalanuvchi hech qanday kompaniyaga biriktirilmagan."` is what the user sees.

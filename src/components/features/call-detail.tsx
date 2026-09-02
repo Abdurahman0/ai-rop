@@ -6,8 +6,9 @@ import { ArrowLeft, CheckCircle2, Clock, Phone, Sparkles, UserRound } from "luci
 import { analysesApi, callsApi, transcriptsApi } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
+import { useLabels } from "@/i18n/use-labels";
 import { demoAnalyses, demoCalls, demoTranscripts } from "@/lib/data/demo";
-import { displayPerson, objectId, parseSkipReason, speakerIndex, titleCase } from "@/lib/utils/format";
+import { objectId, parseSkipReason, speakerIndex } from "@/lib/utils/format";
 import { useApiItem } from "@/hooks/use-api-item";
 import { useApiResource } from "@/hooks/use-api-resource";
 import { CALL_DIRECTIONS, CALL_STAGES, SKIP_REASONS, type Analysis, type Call, type Transcript, type TranscriptSegment } from "@/types/domain";
@@ -94,6 +95,7 @@ function TranscriptPanel({
 }) {
   const t = useT();
   const { formatDate, formatTime, formatDuration } = useFormatters();
+  const labels = useLabels();
   const [activeSegment, setActiveSegment] = useState<string | null>(null);
   const segments = Array.isArray(transcript?.segments) ? (transcript.segments as TranscriptSegment[]) : [];
   const hasTranscriptText = !!transcript?.text;
@@ -105,7 +107,7 @@ function TranscriptPanel({
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-indigo-500">{t("transcript.conversation")}</p>
             <h2 className="mt-1 text-lg font-semibold text-foreground">{t("dashboard.callNumber", { id: call.id })}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{displayPerson(call.operator, t("transcript.sales"))} · {call.client_phone ?? t("transcript.client")}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{labels.person(call.operator)} · {call.client_phone ?? t("transcript.client")}</p>
           </div>
           <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
             <CallMeta icon={<Clock className="h-4 w-4" />} label={t("transcript.date")} value={formatDate(call.started_at)} />
@@ -158,6 +160,7 @@ function TranscriptPanel({
 export function CallDetail({ id }: { id: string }) {
   const t = useT();
   const { formatDate, formatDuration } = useFormatters();
+  const labels = useLabels();
   const callItem = useApiItem(callsApi.get, id, demoCalls.find((item) => String(item.id) === id));
   const analyses = useApiResource(analysesApi.list, demoAnalyses);
   const transcripts = useApiResource(transcriptsApi.list, demoTranscripts);
@@ -165,6 +168,7 @@ export function CallDetail({ id }: { id: string }) {
   const analysis = analyses.data.find((item) => String(objectId(item.call)) === String(call?.id));
   const transcript = transcripts.data.find((item) => String(objectId(item.call)) === String(call?.id));
   const scoreValue = analysis?.overall_score === null || analysis?.overall_score === undefined ? null : Number(analysis.overall_score);
+  const directionLabel = (CALL_DIRECTIONS as readonly string[]).includes(call?.direction ?? "") ? t(`calls.directions.${call?.direction}`) : call?.direction ?? t("common.unknown");
   const skip = parseSkipReason(analysis?.skip_reason);
   const skipLabel = skip ? ((SKIP_REASONS as readonly string[]).includes(skip.code) ? t(`intelligence.skip.${skip.code}`) : skip.code) : "";
 
@@ -181,7 +185,7 @@ export function CallDetail({ id }: { id: string }) {
         </Link>
         <div className="flex items-center gap-2">
           <StatusBadge value={call.stage} label={(CALL_STAGES as readonly string[]).includes(call.stage ?? "") ? t(`calls.stages.${call.stage}`) : undefined} title={call.stage === "failed" ? call.error ?? undefined : undefined} />
-          <Badge tone={call.direction && call.direction !== "unknown" ? "ai" : "neutral"}>{(CALL_DIRECTIONS as readonly string[]).includes(call.direction ?? "") ? t(`calls.directions.${call.direction}`) : titleCase(call.direction)}</Badge>
+          <Badge tone={call.direction && call.direction !== "unknown" ? "ai" : "neutral"}>{directionLabel}</Badge>
         </div>
       </div>
       <section className="mb-4 rounded-lg border border-border bg-card p-5 shadow-sm">
@@ -189,11 +193,11 @@ export function CallDetail({ id }: { id: string }) {
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-indigo-500">{t("callDetail.review")}</p>
             <h1 className="mt-2 text-2xl font-semibold tracking-normal text-foreground">{t("dashboard.callNumber", { id: call.id })}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{call.client_phone ?? t("callDetail.unknownPhone")} · {displayPerson(call.operator, t("callDetail.operator"))}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{call.client_phone ?? t("callDetail.unknownPhone")} · {labels.person(call.operator)}</p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <CallMeta icon={<Phone className="h-4 w-4" />} label={t("callDetail.client")} value={call.client_phone ?? t("common.notRecorded")} />
-            <CallMeta icon={<UserRound className="h-4 w-4" />} label={t("callDetail.operator")} value={displayPerson(call.operator, t("callDetail.operator"))} />
+            <CallMeta icon={<UserRound className="h-4 w-4" />} label={t("callDetail.operator")} value={labels.person(call.operator)} />
             <CallMeta icon={<Clock className="h-4 w-4" />} label={t("calls.duration")} value={formatDuration(call.duration)} />
             <CallMeta icon={<Sparkles className="h-4 w-4" />} label={t("calls.started")} value={formatDate(call.started_at)} />
           </div>
@@ -205,7 +209,7 @@ export function CallDetail({ id }: { id: string }) {
           <Card>
             <CardContent className="p-5">
               <div className="space-y-3 text-sm">
-              <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.direction")}</span><Badge tone="ai">{titleCase(call.direction)}</Badge></div>
+              <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.direction")}</span><Badge tone={call.direction && call.direction !== "unknown" ? "ai" : "neutral"}>{directionLabel}</Badge></div>
               <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.stage")}</span><StatusBadge value={call.stage} label={(CALL_STAGES as readonly string[]).includes(call.stage ?? "") ? t(`calls.stages.${call.stage}`) : undefined} /></div>
               {call.stage === "failed" && call.error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">{call.error}</div> : null}
               <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.provider")}</span><span className="font-medium">{call.provider ?? t("common.notRecorded")}</span></div>

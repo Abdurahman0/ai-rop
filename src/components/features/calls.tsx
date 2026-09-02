@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { analysesApi, callsApi } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
+import { useLabels } from "@/i18n/use-labels";
 import { demoAnalyses, demoCalls } from "@/lib/data/demo";
-import { objectId, titleCase } from "@/lib/utils/format";
+import { objectId } from "@/lib/utils/format";
 import { useApiResource } from "@/hooks/use-api-resource";
 import type { Call } from "@/types/domain";
 import { Badge, StatusBadge } from "@/components/ui/badge";
@@ -25,6 +26,7 @@ export function CallsPage() {
   const router = useRouter();
   const t = useT();
   const { formatDate, formatDuration } = useFormatters();
+  const labels = useLabels();
   const [query, setQuery] = useState("");
   const [direction, setDirection] = useState("");
   const [stage, setStage] = useState("");
@@ -56,8 +58,8 @@ export function CallsPage() {
             onRowClick={(row) => router.push(`/calls/${row.id}`)}
             columns={[
               { header: t("calls.clientPhone"), cell: (row) => row.client_phone ?? t("common.unknown") },
-              { header: t("calls.operator"), cell: (row) => row.operator ?? t("common.unassigned") },
-              { header: t("calls.direction"), cell: (row) => { const direction = row.direction ?? "unknown"; const known = (CALL_DIRECTIONS as readonly string[]).includes(direction); return <Badge tone={known && direction !== "unknown" ? "ai" : "neutral"}>{known ? t(`calls.directions.${direction}`) : titleCase(direction)}</Badge>; } },
+              { header: t("calls.operator"), cell: (row) => labels.person(row.operator) },
+              { header: t("calls.direction"), cell: (row) => { const direction = row.direction ?? "unknown"; const known = (CALL_DIRECTIONS as readonly string[]).includes(direction); return <Badge tone={known && direction !== "unknown" ? "ai" : "neutral"}>{known ? t(`calls.directions.${direction}`) : direction}</Badge>; } },
               { header: t("calls.started"), cell: (row) => formatDate(row.started_at) },
               { header: t("calls.duration"), cell: (row) => formatDuration(row.duration) },
               { header: t("calls.stage"), cell: (row) => <StatusBadge value={row.stage} label={(CALL_STAGES as readonly string[]).includes(row.stage ?? "") ? t(`calls.stages.${row.stage}`) : undefined} title={row.stage === "failed" ? row.error ?? undefined : undefined} /> },

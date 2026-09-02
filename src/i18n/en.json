@@ -49,7 +49,8 @@
     "closeNavigation": "Close navigation",
     "toggleTheme": "Toggle theme",
     "aiCreated": "AI Created",
-    "search": "Search"
+    "search": "Search",
+    "userNumber": "User #{id}"
   },
   "nav": {
     "overview": "Overview",
@@ -87,7 +88,9 @@
   "shell": {
     "confirmLogoutTitle": "Log out?",
     "confirmLogoutDescription": "You will need to sign in again to access AI ROP.",
-    "confirmLogout": "Log out"
+    "confirmLogout": "Log out",
+    "noCompanyTitle": "No company linked to this account",
+    "noCompanyHint": "Ask an administrator to attach your user to a company, then sign in again."
   },
   "dashboard": {
     "title": "{greeting}, Abdurahmon",
@@ -501,5 +504,21 @@
     "requiredError": "This field is required.",
     "numberError": "Enter a valid number.",
     "dateError": "Use the YYYY-MM-DD format."
+  },
+  "enums": {
+    "createdVia": {
+      "manual": "Manual",
+      "call_ai": "AI from call"
+    },
+    "entityType": {
+      "lead": "Lead",
+      "client": "Client"
+    },
+    "fieldType": {
+      "text": "Text",
+      "number": "Number",
+      "date": "Date",
+      "phone": "Phone"
+    }
   }
 }

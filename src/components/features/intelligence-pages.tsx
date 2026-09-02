@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { analysesApi, callsApi, transcriptsApi } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
+import { useLabels } from "@/i18n/use-labels";
 import { demoAnalyses, demoCalls, demoTranscripts } from "@/lib/data/demo";
 import { objectId, parseSkipReason, speakerIndex } from "@/lib/utils/format";
 import { useApiItem } from "@/hooks/use-api-item";
@@ -22,6 +23,7 @@ export function AIReviewsPage() {
   const router = useRouter();
   const t = useT();
   const { formatDate } = useFormatters();
+  const labels = useLabels();
   const [scoreFilter, setScoreFilter] = useState("");
   const [leadFilter, setLeadFilter] = useState("");
   const analyses = useApiResource(analysesApi.list, demoAnalyses);
@@ -68,7 +70,7 @@ export function AIReviewsPage() {
         {calls.data.slice(0, 3).map((call) => (
           <Card key={call.id} className="p-4">
             <p className="text-sm font-medium">{t("dashboard.callNumber", { id: call.id })}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{call.operator ?? t("common.unknown")} · {call.client_phone}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{labels.person(call.operator)} · {call.client_phone}</p>
           </Card>
         ))}
       </div> : null}

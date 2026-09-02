@@ -60,11 +60,6 @@ export function formatDuration(seconds?: number | null, fallback = "Not recorded
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-export function displayPerson(value?: string | number | null, label = "User") {
-  if (value === null || value === undefined || value === "") return "Unassigned";
-  return typeof value === "number" ? `${label} #${value}` : value;
-}
-
 export function titleCase(value?: string) {
   if (!value) return "Unknown";
   return value

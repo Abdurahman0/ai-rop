@@ -9,6 +9,7 @@ import { analysesApi, callsApi, clientsApi, leadsApi, leadStatusesApi } from "@/
 import { dictionaries } from "@/i18n/dictionaries";
 import { useLocale, useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
+import { useLabels } from "@/i18n/use-labels";
 import { demoAnalyses, demoCalls, demoClients, demoLeads, demoStatuses } from "@/lib/data/demo";
 import { objectId, relativeDayGreeting, resolveRef, scoreTone } from "@/lib/utils/format";
 import { useApiResource } from "@/hooks/use-api-resource";
@@ -130,6 +131,7 @@ export function Dashboard() {
   const router = useRouter();
   const t = useT();
   const { formatDate, formatDuration } = useFormatters();
+  const labels = useLabels();
   const [date, setDate] = useState(new Date());
   const calls = useApiResource(callsApi.list, demoCalls);
   const analyses = useApiResource(analysesApi.list, demoAnalyses);
@@ -216,7 +218,7 @@ export function Dashboard() {
                     <ScoreBadge score={insight.overall_score} />
                   </div>
                   <p className="font-medium">{insight.summary}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">{t("dashboard.seller")}: {call?.operator ?? t("common.unknown")} · {t("dashboard.callNumber", { id: objectId(insight.call) ?? t("common.na") })} · {formatDate(insight.created_at)}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{t("dashboard.seller")}: {labels.person(call?.operator)} · {t("dashboard.callNumber", { id: objectId(insight.call) ?? t("common.na") })} · {formatDate(insight.created_at)}</p>
                 </button>
               );
             })}
@@ -230,7 +232,7 @@ export function Dashboard() {
             onRowClick={(row) => router.push(`/calls/${row.id}`)}
             columns={[
               { header: t("resources.client"), cell: (row) => row.client_phone ?? t("common.unknown") },
-              { header: t("calls.operator"), cell: (row) => row.operator ?? t("common.unassigned") },
+              { header: t("calls.operator"), cell: (row) => labels.person(row.operator) },
               { header: t("calls.direction"), cell: (row) => { const direction = row.direction ?? "unknown"; const known = (CALL_DIRECTIONS as readonly string[]).includes(direction); return <Badge tone={known && direction !== "unknown" ? "ai" : "neutral"}>{known ? t(`calls.directions.${direction}`) : direction}</Badge>; } },
               { header: t("calls.duration"), cell: (row) => formatDuration(row.duration) },
               { header: t("calls.stage"), cell: (row) => <StatusBadge value={row.stage} label={(CALL_STAGES as readonly string[]).includes(row.stage ?? "") ? t(`calls.stages.${row.stage}`) : undefined} title={row.stage === "failed" ? row.error ?? undefined : undefined} /> },

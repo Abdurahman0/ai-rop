@@ -7,8 +7,9 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { ApiError, callsApi, clientsApi, fieldDefinitionsApi, leadsApi, leadStatusesApi, type FieldErrors } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
+import { useLabels } from "@/i18n/use-labels";
 import { demoCalls, demoClients, demoFields, demoLeads, demoStatuses } from "@/lib/data/demo";
-import { displayPerson, objectId, resolveRef, titleCase } from "@/lib/utils/format";
+import { objectId, resolveRef } from "@/lib/utils/format";
 import { useApiItem } from "@/hooks/use-api-item";
 import { useApiResource } from "@/hooks/use-api-resource";
 import { useAuthStore } from "@/stores/auth-store";
@@ -56,6 +57,7 @@ function Field({ label, children, error, hint }: { label: string; children: Reac
 export function LeadsPage() {
   const router = useRouter();
   const t = useT();
+  const labels = useLabels();
   const { formatDate } = useFormatters();
   const [view, setView] = useState<"table" | "kanban">("table");
   const [search, setSearch] = useState("");
@@ -84,8 +86,8 @@ export function LeadsPage() {
               { header: t("resources.title"), cell: (row) => row.title ?? t("resources.untitledLead") },
               { header: t("resources.client"), cell: (row) => <ClientLabel client={resolveRef(row.client, clients.data)} id={objectId(row.client)} /> },
               { header: t("resources.status"), cell: (row) => { const status = resolveRef(row.status, statuses.data); return <StatusBadge value={status?.name ?? `#${objectId(row.status) ?? ""}`} color={status?.color} />; } },
-              { header: t("resources.assigned"), cell: (row) => displayPerson(row.assigned_to) },
-              { header: t("resources.createdVia"), cell: (row) => row.created_via?.toLowerCase().includes("ai") ? <Badge tone="ai">{t("common.aiCreated")}</Badge> : row.created_via ?? t("common.manual") },
+              { header: t("resources.assigned"), cell: (row) => labels.person(row.assigned_to) },
+              { header: t("resources.createdVia"), cell: (row) => row.created_via?.toLowerCase().includes("ai") ? <Badge tone="ai">{labels.createdVia(row.created_via)}</Badge> : labels.createdVia(row.created_via ?? "manual") },
               { header: t("resources.created"), cell: (row) => formatDate(row.created_at) },
               { header: t("common.actions"), cell: (row) => <div className="flex items-center gap-1"><button className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={(event) => { event.stopPropagation(); setEditing(row); }} aria-label={t("resources.editLead")}><Pencil className="h-4 w-4" /></button><button className="rounded-md p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10" onClick={(event) => { event.stopPropagation(); setConfirm(row); }} aria-label={t("resources.deleteLead")}><Trash2 className="h-4 w-4" /></button></div> },
             ]}
@@ -121,6 +123,7 @@ export function LeadsPage() {
 /** Kanban board over the company's lead statuses. Dropping a card PATCHes it. */
 function LeadKanban({ leads, statuses, clients, onOpen, onMove }: { leads: Lead[]; statuses: LeadStatus[]; clients: Client[]; onOpen: (id: ID) => void; onMove: (lead: Lead, status: LeadStatus) => Promise<void> }) {
   const t = useT();
+  const labels = useLabels();
   const { formatDate } = useFormatters();
   const [dragging, setDragging] = useState<Lead | null>(null);
   const [over, setOver] = useState<string | null>(null);
@@ -183,7 +186,7 @@ function LeadKanban({ leads, statuses, clients, onOpen, onMove }: { leads: Lead[
                     {lead.created_via?.toLowerCase().includes("ai") ? <Badge tone="ai">AI</Badge> : null}
                   </div>
                   <p className="mt-1 text-muted-foreground"><ClientLabel client={resolveRef(lead.client, clients)} id={objectId(lead.client)} /></p>
-                  <p className="mt-2 text-xs text-muted-foreground">{displayPerson(lead.assigned_to)} · {formatDate(lead.created_at)}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{labels.person(lead.assigned_to)} · {formatDate(lead.created_at)}</p>
                 </div>
               ))}
               {column.length === 0 ? <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">{t("resources.dropHere")}</p> : null}
@@ -281,6 +284,7 @@ function LeadModal({ open, onOpenChange, onSave, initial, clients, statuses }: {
 export function ClientsPage() {
   const router = useRouter();
   const t = useT();
+  const labels = useLabels();
   const { formatDate } = useFormatters();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -303,7 +307,7 @@ export function ClientsPage() {
             columns={[
               { header: t("resources.name"), cell: (row) => row.name ?? t("resources.unnamed") },
               { header: t("resources.phone"), cell: (row) => row.phone ?? t("resources.noPhone") },
-              { header: t("resources.createdVia"), cell: (row) => row.created_via ?? t("common.manual") },
+              { header: t("resources.createdVia"), cell: (row) => labels.createdVia(row.created_via ?? "manual") },
               { header: t("resources.createdAt"), cell: (row) => formatDate(row.created_at) },
               { header: t("resources.updatedAt"), cell: (row) => formatDate(row.updated_at) },
               { header: t("common.actions"), cell: (row) => <div className="flex items-center gap-1"><button className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={(event) => { event.stopPropagation(); setEditing(row); }} aria-label={t("resources.editClient")}><Pencil className="h-4 w-4" /></button><button className="rounded-md p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10" onClick={(event) => { event.stopPropagation(); setConfirm(row); }} aria-label={t("resources.deleteClient")}><Trash2 className="h-4 w-4" /></button></div> },
@@ -455,6 +459,7 @@ function StatusModal({ open, onOpenChange, onSave, initial }: { open: boolean; o
 
 export function FieldsSettingsPage() {
   const t = useT();
+  const labels = useLabels();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FieldDefinition | null>(null);
   const [confirm, setConfirm] = useState<FieldDefinition | null>(null);
@@ -469,10 +474,10 @@ export function FieldsSettingsPage() {
           data={fields.data}
           rowKey={(row) => String(row.id)}
           columns={[
-            { header: t("resources.entity"), cell: (row) => titleCase(row.entity_type) },
+            { header: t("resources.entity"), cell: (row) => labels.entityType(row.entity_type) },
             { header: t("resources.label"), cell: (row) => <span className="flex items-center gap-2">{row.label}{row.is_system ? <Badge>{t("resources.system")}</Badge> : null}</span> },
             { header: t("resources.key"), cell: (row) => <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{row.key}</code> },
-            { header: t("resources.type"), cell: (row) => row.field_type },
+            { header: t("resources.type"), cell: (row) => labels.fieldType(row.field_type) },
             { header: t("resources.order"), cell: (row) => row.order ?? "-" },
             { header: t("resources.required"), cell: (row) => <Switch label={t("resources.requiredField")} checked={!!row.is_required} onCheckedChange={async (checked) => { await fieldDefinitionsApi.patch(row.id, { is_required: checked }, accessToken); await fields.reload(); }} /> },
             { header: t("resources.active"), cell: (row) => row.is_active === false ? <Badge>{t("resources.inactive")}</Badge> : <Badge tone="success">{t("resources.active")}</Badge> },
@@ -491,6 +496,7 @@ export function FieldsSettingsPage() {
 
 function FieldModal({ open, onOpenChange, onSave, initial }: { open: boolean; onOpenChange: (open: boolean) => void; onSave: (payload: Partial<FieldDefinition>) => Promise<void>; initial?: FieldDefinition }) {
   const t = useT();
+  const labels = useLabels();
   const isEdit = !!initial;
   const [entityType, setEntityType] = useState("lead");
   const [label, setLabel] = useState("");
@@ -547,14 +553,14 @@ function FieldModal({ open, onOpenChange, onSave, initial }: { open: boolean; on
       <form className="space-y-4 p-5" onSubmit={submit}>
         <div className="grid gap-4 md:grid-cols-2">
           <Field label={t("resources.entityType")} error={errors.entity_type}>
-            {isEdit ? <Input value={titleCase(entityType)} disabled readOnly /> : <Select label={t("resources.entity")} value={entityType} onChange={setEntityType} options={[{ label: t("resources.lead"), value: "lead" }, { label: t("resources.client"), value: "client" }]} />}
+            {isEdit ? <Input value={labels.entityType(entityType)} disabled readOnly /> : <Select label={t("resources.entity")} value={entityType} onChange={setEntityType} options={[{ label: t("resources.lead"), value: "lead" }, { label: t("resources.client"), value: "client" }]} />}
           </Field>
           <Field label={t("resources.label")} error={errors.label}><Input required value={label} onChange={(event) => setLabel(event.target.value)} /></Field>
           <Field label={t("resources.key")} error={errors.key} hint={isEdit ? undefined : t("resources.keyHint")}>
             <Input required value={key} disabled={isEdit} readOnly={isEdit} onChange={(event) => setKey(event.target.value)} />
           </Field>
           <Field label={t("resources.fieldType")} error={errors.field_type}>
-            {isEdit ? <Input value={fieldType} disabled readOnly /> : <Select label={t("resources.type")} value={fieldType} onChange={setFieldType} options={[{ label: t("resources.text"), value: "text" }, { label: t("resources.number"), value: "number" }, { label: t("resources.date"), value: "date" }, { label: t("resources.phone"), value: "phone" }]} />}
+            {isEdit ? <Input value={labels.fieldType(fieldType)} disabled readOnly /> : <Select label={t("resources.type")} value={fieldType} onChange={setFieldType} options={[{ label: t("resources.text"), value: "text" }, { label: t("resources.number"), value: "number" }, { label: t("resources.date"), value: "date" }, { label: t("resources.phone"), value: "phone" }]} />}
           </Field>
         </div>
         <Field label={t("resources.order")} error={errors.order}><Input type="number" value={order} onChange={(event) => setOrder(event.target.value)} /></Field>
@@ -569,6 +575,7 @@ function FieldModal({ open, onOpenChange, onSave, initial }: { open: boolean; on
 
 export function LeadDetail({ id }: { id: string }) {
   const t = useT();
+  const labels = useLabels();
   const { formatDate } = useFormatters();
   const leadItem = useApiItem(leadsApi.get, id, demoLeads.find((item) => String(item.id) === id));
   const clients = useApiResource(clientsApi.list, demoClients);
@@ -587,9 +594,9 @@ export function LeadDetail({ id }: { id: string }) {
       sections={[
         [t("resources.client"), client ? <Link key="client" className="text-primary hover:underline" href={`/clients/${client.id}`}>{client.name || client.phone || `#${client.id}`}</Link> : <ClientLabel key="client" id={objectId(lead.client)} />],
         [t("resources.status"), <StatusBadge key="status" value={status?.name ?? `#${objectId(lead.status) ?? ""}`} color={status?.color} />],
-        [t("resources.assignedOperator"), displayPerson(lead.assigned_to)],
+        [t("resources.assignedOperator"), labels.person(lead.assigned_to)],
         [t("resources.sourceCall"), sourceCall ? <Link key="call" className="text-primary hover:underline" href={`/calls/${sourceCall}`}>{t("dashboard.callNumber", { id: sourceCall })}</Link> : t("common.none")],
-        [t("resources.createdVia"), lead.created_via ?? t("common.manual")],
+        [t("resources.createdVia"), labels.createdVia(lead.created_via ?? "manual")],
         [t("resources.created"), formatDate(lead.created_at)],
         [t("resources.updated"), formatDate(lead.updated_at)],
         [t("resources.customFields"), <StructuredDataValue key="lead-custom-data" value={lead.custom_data ?? {}} />],
@@ -600,6 +607,7 @@ export function LeadDetail({ id }: { id: string }) {
 
 export function ClientDetail({ id }: { id: string }) {
   const t = useT();
+  const labels = useLabels();
   const { formatDate } = useFormatters();
   const clientItem = useApiItem(clientsApi.get, id, demoClients.find((item) => String(item.id) === id));
   const leads = useApiResource(leadsApi.list, demoLeads);
@@ -617,7 +625,7 @@ export function ClientDetail({ id }: { id: string }) {
       title={client.name ?? client.phone ?? t("resources.client")}
       sections={[
         [t("resources.phone"), client.phone],
-        [t("resources.createdVia"), client.created_via ?? t("common.manual")],
+        [t("resources.createdVia"), labels.createdVia(client.created_via ?? "manual")],
         [t("resources.created"), formatDate(client.created_at)],
         [t("resources.updated"), formatDate(client.updated_at)],
         [t("resources.customData"), <StructuredDataValue key="client-custom-data" value={client.custom_data ?? {}} />],
