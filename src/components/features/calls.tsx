@@ -7,14 +7,14 @@ import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
 import { useLabels } from "@/i18n/use-labels";
 import { demoAnalyses, demoCalls } from "@/lib/data/demo";
-import { objectId } from "@/lib/utils/format";
+import { isSameDay, objectId } from "@/lib/utils/format";
 import { useApiResource } from "@/hooks/use-api-resource";
 import type { Call } from "@/types/domain";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { CALL_DIRECTIONS, CALL_STAGES } from "@/types/domain";
 import { AIScore } from "@/components/ui/ai-score";
 import { Card } from "@/components/ui/card";
-import { DatePicker } from "@/components/ui/date-picker";
+import { DateFilter } from "@/components/ui/date-picker";
 import { SearchInput } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/table";
@@ -30,16 +30,17 @@ export function CallsPage() {
   const [query, setQuery] = useState("");
   const [direction, setDirection] = useState("");
   const [stage, setStage] = useState("");
-  const [date, setDate] = useState(new Date());
+  const [date, setDate] = useState<Date | null>(null);
   const calls = useApiResource(callsApi.list, demoCalls);
   const analyses = useApiResource(analysesApi.list, demoAnalyses);
   const filtered = useMemo(
     () =>
       calls.data.filter((call) => {
         const text = `${call.client_phone ?? ""} ${call.operator ?? ""}`.toLowerCase();
-        return text.includes(query.toLowerCase()) && (!direction || call.direction?.toLowerCase() === direction) && (!stage || call.stage?.toLowerCase() === stage);
+        const onDate = !date || (call.started_at ? isSameDay(new Date(call.started_at), date) : false);
+        return text.includes(query.toLowerCase()) && (!direction || call.direction?.toLowerCase() === direction) && (!stage || call.stage?.toLowerCase() === stage) && onDate;
       }),
-    [calls.data, direction, query, stage],
+    [calls.data, date, direction, query, stage],
   );
 
   return (
@@ -47,7 +48,7 @@ export function CallsPage() {
       <PageHeader
         title={t("calls.title")}
         description={t("calls.description")}
-        actions={<><DatePicker value={date} onChange={setDate} /><Select label={t("calls.direction")} value={direction} onChange={setDirection} options={[{ label: t("common.all"), value: "" }, { label: t("calls.inbound"), value: "inbound" }, { label: t("calls.outbound"), value: "outbound" }]} /><Select label={t("calls.stage")} value={stage} onChange={setStage} options={[{ label: t("common.all"), value: "" }, ...CALL_STAGES.map((value) => ({ label: t(`calls.stages.${value}`), value }))]} /></>}
+        actions={<><DateFilter value={date} onChange={setDate} /><Select label={t("calls.direction")} value={direction} onChange={setDirection} options={[{ label: t("common.all"), value: "" }, { label: t("calls.inbound"), value: "inbound" }, { label: t("calls.outbound"), value: "outbound" }]} /><Select label={t("calls.stage")} value={stage} onChange={setStage} options={[{ label: t("common.all"), value: "" }, ...CALL_STAGES.map((value) => ({ label: t(`calls.stages.${value}`), value }))]} /></>}
       />
       <Card>
         <div className="border-b border-border p-4"><SearchInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("calls.searchPlaceholder")} /></div>

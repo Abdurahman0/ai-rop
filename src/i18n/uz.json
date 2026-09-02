@@ -399,7 +399,11 @@
       "Pa",
       "Ju",
       "Sh"
-    ]
+    ],
+    "selectDate": "Sanani tanlang",
+    "clear": "Tozalash",
+    "openCalendar": "Kalendarni ochish",
+    "allDates": "Barcha sanalar"
   },
   "errors": {
     "loadData": "Maʼlumot yuklanmadi",

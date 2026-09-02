@@ -112,3 +112,24 @@ export function speakerIndex(speaker?: string) {
   const match = speaker?.match(/^speaker[\s_-]?(\d+)$/i);
   return match ? Number(match[1]) + 1 : null;
 }
+
+/** `Date` -> `YYYY-MM-DD`, in local time (never shifts a day like toISOString). */
+export function toISODate(date: Date) {
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/** `YYYY-MM-DD` -> local `Date`, or null when absent/malformed. */
+export function parseISODate(value?: string | null) {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** True when two dates fall on the same calendar day. */
+export function isSameDay(a?: Date | null, b?: Date | null) {
+  return !!a && !!b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}

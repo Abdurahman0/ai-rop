@@ -399,7 +399,11 @@
       "Th",
       "Fr",
       "Sa"
-    ]
+    ],
+    "selectDate": "Select a date",
+    "clear": "Clear",
+    "openCalendar": "Open calendar",
+    "allDates": "All dates"
   },
   "errors": {
     "loadData": "Unable to load data",

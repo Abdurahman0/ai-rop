@@ -6,6 +6,7 @@ import { useT } from "@/i18n/use-t";
 import { demoFields } from "@/lib/data/demo";
 import { useApiResource } from "@/hooks/use-api-resource";
 import type { FieldDefinition } from "@/types/domain";
+import { DateField } from "./date-picker";
 import { Input } from "./input";
 
 export type CustomEntity = "lead" | "client";
@@ -76,7 +77,6 @@ export function buildCustomData(fields: FieldDefinition[], values: CustomValues,
 
 function inputType(fieldType?: string) {
   if (fieldType === "number") return "number";
-  if (fieldType === "date") return "date";
   if (fieldType === "phone") return "tel";
   return "text";
 }
@@ -124,14 +124,20 @@ export function CustomFieldInputs({
               {field.label ?? key}
               {field.is_required ? <span className="text-red-600">*</span> : null}
             </span>
-            <Input
-              className={`mt-2 ${error ? "border-red-400 focus:border-red-500 focus:ring-red-500/10" : ""}`}
-              type={inputType(field.field_type)}
-              inputMode={field.field_type === "number" ? "decimal" : undefined}
-              value={values[key] ?? ""}
-              onChange={(event) => onChange(key, event.target.value)}
-              aria-invalid={!!error}
-            />
+            <div className="mt-2">
+              {field.field_type === "date" ? (
+                <DateField value={values[key] ?? ""} onChange={(next) => onChange(key, next)} error={!!error} required={field.is_required} />
+              ) : (
+                <Input
+                  className={error ? "border-red-400 focus:border-red-500 focus:ring-red-500/10" : ""}
+                  type={inputType(field.field_type)}
+                  inputMode={field.field_type === "number" ? "decimal" : undefined}
+                  value={values[key] ?? ""}
+                  onChange={(event) => onChange(key, event.target.value)}
+                  aria-invalid={!!error}
+                />
+              )}
+            </div>
             {error ? <span className="mt-1 block text-xs font-normal text-red-600">{error}</span> : null}
           </label>
         );

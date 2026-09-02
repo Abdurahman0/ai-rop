@@ -1,7 +1,9 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { Loader2 } from "lucide-react";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  /** React 19 passes ref as a plain prop for function components. */
+  ref?: Ref<HTMLButtonElement>;
   variant?: "primary" | "secondary" | "ghost" | "success" | "warning" | "danger";
   size?: "sm" | "md" | "lg";
   icon?: ReactNode;

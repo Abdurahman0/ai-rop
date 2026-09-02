@@ -55,13 +55,14 @@ function KpiCard({ label, value, icon: Icon, href, loading }: { label: string; v
   );
 }
 
-function MiniChart({ calls, analyses }: { calls: Call[]; analyses: Analysis[] }) {
+function MiniChart({ calls, analyses, endDate }: { calls: Call[]; analyses: Analysis[]; endDate: Date }) {
   const t = useT();
   const { locale } = useLocale();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  // Seven days ending on the selected date.
   const days = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - index));
+    const date = new Date(endDate);
+    date.setDate(endDate.getDate() - (6 - index));
     return date;
   });
   const points = days.map((day) => calls.filter((call) => call.started_at && new Date(call.started_at).toDateString() === day.toDateString()).length);
@@ -182,7 +183,7 @@ export function Dashboard() {
         <Card>
           <CardHeader title={t("dashboard.callActivity")} action={<div className="flex gap-1"><Badge tone="ai">{t("dashboard.sevenDays")}</Badge><Badge>{t("dashboard.thirtyDays")}</Badge></div>} />
           <CardContent>
-            <MiniChart calls={calls.data} analyses={analyses.data} />
+            <MiniChart calls={calls.data} analyses={analyses.data} endDate={date} />
           </CardContent>
         </Card>
         <Card>
