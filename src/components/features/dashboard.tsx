@@ -5,14 +5,14 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, Bot, ClipboardList, PhoneCall, Sparkles, type LucideIcon } from "lucide-react";
-import { analysesApi, callsApi, leadsApi, leadStatusesApi } from "@/lib/api/client";
+import { analysesApi, callsApi, clientsApi, leadsApi, leadStatusesApi } from "@/lib/api/client";
 import { dictionaries } from "@/i18n/dictionaries";
 import { useLocale, useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
-import { demoAnalyses, demoCalls, demoLeads, demoStatuses } from "@/lib/data/demo";
-import { objectId, relativeDayGreeting, scoreTone, titleCase } from "@/lib/utils/format";
+import { demoAnalyses, demoCalls, demoClients, demoLeads, demoStatuses } from "@/lib/data/demo";
+import { objectId, relativeDayGreeting, resolveRef, scoreTone } from "@/lib/utils/format";
 import { useApiResource } from "@/hooks/use-api-resource";
-import type { Analysis, Call, Lead } from "@/types/domain";
+import { CALL_DIRECTIONS, CALL_STAGES, type Analysis, type Call, type Lead } from "@/types/domain";
 import { Badge, ScoreBadge, StatusBadge } from "@/components/ui/badge";
 import { AIScore } from "@/components/ui/ai-score";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -135,6 +135,7 @@ export function Dashboard() {
   const analyses = useApiResource(analysesApi.list, demoAnalyses);
   const leads = useApiResource(leadsApi.list, demoLeads);
   const statuses = useApiResource(leadStatusesApi.list, demoStatuses);
+  const clients = useApiResource(clientsApi.list, demoClients);
   const scoredAnalyses = analyses.data.map((item) => scoreNumber(item.overall_score)).filter((score): score is number => score !== null);
   const avgScore = scoredAnalyses.length ? Math.round(scoredAnalyses.reduce((sum, score) => sum + score, 0) / scoredAnalyses.length) : null;
   const latestCalls = calls.data.slice(0, 5);
@@ -205,12 +206,13 @@ export function Dashboard() {
           <CardHeader title={t("dashboard.aiInsights")} eyebrow={t("dashboard.aiInsightsEyebrow")} />
           <CardContent className="space-y-3">
             {analyses.loading ? <LoadingState label={t("dashboard.loadingInsights")} /> : analyses.error ? <ErrorState title={t("dashboard.loadInsightsError")} description={analyses.error} onRetry={analyses.reload} /> : insights.length === 0 ? <EmptyState title={t("dashboard.noReviewsTitle")} description={t("dashboard.noReviewsDescription")} /> : insights.map((insight) => {
-              const tone = scoreTone(scoreNumber(insight.overall_score));
+              const score = scoreNumber(insight.overall_score);
+              const tone = scoreTone(score);
               const call = calls.data.find((item) => item.id === objectId(insight.call));
               return (
                 <button key={insight.id} className="w-full rounded-lg border border-border p-4 text-left transition hover:border-indigo-300 hover:bg-muted/60" onClick={() => router.push(`/calls/${objectId(insight.call) ?? call?.id ?? insight.id}`)}>
                   <div className="mb-3 flex items-center justify-between">
-                    <Badge tone={tone === "danger" ? "danger" : tone === "warning" ? "warning" : "success"}>{tone === "danger" ? t("dashboard.critical") : tone === "warning" ? t("dashboard.attention") : t("dashboard.positive")}</Badge>
+                    <Badge tone={score === null ? "neutral" : tone === "danger" ? "danger" : tone === "warning" ? "warning" : "success"}>{score === null ? t("common.notAnalyzed") : tone === "danger" ? t("dashboard.critical") : tone === "warning" ? t("dashboard.attention") : t("dashboard.positive")}</Badge>
                     <ScoreBadge score={insight.overall_score} />
                   </div>
                   <p className="font-medium">{insight.summary}</p>
@@ -229,9 +231,9 @@ export function Dashboard() {
             columns={[
               { header: t("resources.client"), cell: (row) => row.client_phone ?? t("common.unknown") },
               { header: t("calls.operator"), cell: (row) => row.operator ?? t("common.unassigned") },
-              { header: t("calls.direction"), cell: (row) => <Badge tone="ai">{titleCase(row.direction)}</Badge> },
+              { header: t("calls.direction"), cell: (row) => { const direction = row.direction ?? "unknown"; const known = (CALL_DIRECTIONS as readonly string[]).includes(direction); return <Badge tone={known && direction !== "unknown" ? "ai" : "neutral"}>{known ? t(`calls.directions.${direction}`) : direction}</Badge>; } },
               { header: t("calls.duration"), cell: (row) => formatDuration(row.duration) },
-              { header: t("calls.stage"), cell: (row) => <StatusBadge value={row.stage} /> },
+              { header: t("calls.stage"), cell: (row) => <StatusBadge value={row.stage} label={(CALL_STAGES as readonly string[]).includes(row.stage ?? "") ? t(`calls.stages.${row.stage}`) : undefined} title={row.stage === "failed" ? row.error ?? undefined : undefined} /> },
               { header: t("calls.aiScore"), cell: (row) => <ScoreBadge score={analysisFor(row, analyses.data)?.overall_score} /> },
               { header: t("calls.started"), cell: (row) => formatDate(row.started_at) },
             ]}
@@ -253,7 +255,7 @@ export function Dashboard() {
                     {leads.map((lead) => (
                       <div key={lead.id} className="rounded-md border border-border bg-card p-3 text-sm">
                         <p className="font-medium">{lead.title}</p>
-                        <p className="mt-1 text-muted-foreground">{lead.assigned_to ?? t("common.unassigned")}</p>
+                        <p className="mt-1 text-muted-foreground">{resolveRef(lead.client, clients.data)?.name ?? resolveRef(lead.client, clients.data)?.phone ?? t("common.unassigned")}</p>
                       </div>
                     ))}
                   </div>
@@ -269,7 +271,7 @@ export function Dashboard() {
               <button key={lead.id} className="flex w-full items-center justify-between rounded-md border border-border p-3 text-left hover:bg-muted" onClick={() => router.push(`/leads/${lead.id}`)}>
                 <div>
                   <p className="text-sm font-medium">{lead.title}</p>
-                  <p className="text-xs text-muted-foreground">{typeof lead.client === "object" ? lead.client.name ?? lead.client.phone : `#${lead.client}`}</p>
+                  <p className="text-xs text-muted-foreground">{resolveRef(lead.client, clients.data)?.name ?? resolveRef(lead.client, clients.data)?.phone ?? `#${objectId(lead.client) ?? ""}`}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {lead.created_via?.toLowerCase().includes("ai") ? <Badge tone="ai">{t("common.aiCreated")}</Badge> : null}

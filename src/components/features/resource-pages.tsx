@@ -1,13 +1,14 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { ApiError, clientsApi, fieldDefinitionsApi, leadsApi, leadStatusesApi, type FieldErrors } from "@/lib/api/client";
+import { ApiError, callsApi, clientsApi, fieldDefinitionsApi, leadsApi, leadStatusesApi, type FieldErrors } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
-import { demoClients, demoFields, demoLeads, demoStatuses } from "@/lib/data/demo";
-import { displayPerson, objectId, titleCase } from "@/lib/utils/format";
+import { demoCalls, demoClients, demoFields, demoLeads, demoStatuses } from "@/lib/data/demo";
+import { displayPerson, objectId, resolveRef, titleCase } from "@/lib/utils/format";
 import { useApiItem } from "@/hooks/use-api-item";
 import { useApiResource } from "@/hooks/use-api-resource";
 import { useAuthStore } from "@/stores/auth-store";
@@ -33,6 +34,13 @@ import { DataTable } from "@/components/ui/table";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/states";
 import { Pagination } from "@/components/ui/pagination";
 import { PageHeader } from "@/components/shell/page-header";
+
+/** Shows a client's name, falling back to the phone and then the raw id. */
+function ClientLabel({ client, id }: { client?: Client; id?: ID }) {
+  const t = useT();
+  if (client) return <>{client.name || client.phone || `#${client.id}`}</>;
+  return <span className="text-muted-foreground">{id === undefined ? t("common.unknown") : `#${id}`}</span>;
+}
 
 function Field({ label, children, error, hint }: { label: string; children: React.ReactNode; error?: string; hint?: string }) {
   return (
@@ -74,8 +82,8 @@ export function LeadsPage() {
             onRowClick={(row) => router.push(`/leads/${row.id}`)}
             columns={[
               { header: t("resources.title"), cell: (row) => row.title ?? t("resources.untitledLead") },
-              { header: t("resources.client"), cell: (row) => typeof row.client === "object" ? row.client.name ?? row.client.phone : `#${row.client}` },
-              { header: t("resources.status"), cell: (row) => <StatusBadge value={typeof row.status === "object" ? row.status.name : `#${row.status}`} color={typeof row.status === "object" ? row.status.color : undefined} /> },
+              { header: t("resources.client"), cell: (row) => <ClientLabel client={resolveRef(row.client, clients.data)} id={objectId(row.client)} /> },
+              { header: t("resources.status"), cell: (row) => { const status = resolveRef(row.status, statuses.data); return <StatusBadge value={status?.name ?? `#${objectId(row.status) ?? ""}`} color={status?.color} />; } },
               { header: t("resources.assigned"), cell: (row) => displayPerson(row.assigned_to) },
               { header: t("resources.createdVia"), cell: (row) => row.created_via?.toLowerCase().includes("ai") ? <Badge tone="ai">{t("common.aiCreated")}</Badge> : row.created_via ?? t("common.manual") },
               { header: t("resources.created"), cell: (row) => formatDate(row.created_at) },
@@ -87,6 +95,7 @@ export function LeadsPage() {
             <LeadKanban
               leads={filtered}
               statuses={statuses.data}
+              clients={clients.data}
               onOpen={(id) => router.push(`/leads/${id}`)}
               onMove={async (lead, status) => {
                 try {
@@ -110,7 +119,7 @@ export function LeadsPage() {
 }
 
 /** Kanban board over the company's lead statuses. Dropping a card PATCHes it. */
-function LeadKanban({ leads, statuses, onOpen, onMove }: { leads: Lead[]; statuses: LeadStatus[]; onOpen: (id: ID) => void; onMove: (lead: Lead, status: LeadStatus) => Promise<void> }) {
+function LeadKanban({ leads, statuses, clients, onOpen, onMove }: { leads: Lead[]; statuses: LeadStatus[]; clients: Client[]; onOpen: (id: ID) => void; onMove: (lead: Lead, status: LeadStatus) => Promise<void> }) {
   const t = useT();
   const { formatDate } = useFormatters();
   const [dragging, setDragging] = useState<Lead | null>(null);
@@ -173,7 +182,7 @@ function LeadKanban({ leads, statuses, onOpen, onMove }: { leads: Lead[]; status
                     <p className="font-medium">{lead.title ?? t("resources.untitledLead")}</p>
                     {lead.created_via?.toLowerCase().includes("ai") ? <Badge tone="ai">AI</Badge> : null}
                   </div>
-                  <p className="mt-1 text-muted-foreground">{typeof lead.client === "object" ? lead.client.name ?? lead.client.phone : `#${lead.client}`}</p>
+                  <p className="mt-1 text-muted-foreground"><ClientLabel client={resolveRef(lead.client, clients)} id={objectId(lead.client)} /></p>
                   <p className="mt-2 text-xs text-muted-foreground">{displayPerson(lead.assigned_to)} · {formatDate(lead.created_at)}</p>
                 </div>
               ))}
@@ -562,22 +571,75 @@ export function LeadDetail({ id }: { id: string }) {
   const t = useT();
   const { formatDate } = useFormatters();
   const leadItem = useApiItem(leadsApi.get, id, demoLeads.find((item) => String(item.id) === id));
+  const clients = useApiResource(clientsApi.list, demoClients);
+  const statuses = useApiResource(leadStatusesApi.list, demoStatuses);
   const lead = leadItem.data;
   if (leadItem.loading) return <TableSkeleton />;
   if (leadItem.error) return <ErrorState title={t("resources.loadLeadError")} description={leadItem.error} onRetry={leadItem.reload} />;
   if (!lead) return <EmptyState title={t("resources.leadNotFound")} description={t("resources.leadNotFoundDescription")} />;
-  return <DetailLayout title={lead?.title ?? t("resources.lead")} sections={[[t("resources.client"), typeof lead?.client === "object" ? lead.client.name ?? lead.client.phone : `#${lead?.client}`], [t("resources.status"), typeof lead?.status === "object" ? lead.status.name : `#${lead?.status}`], [t("resources.assignedOperator"), displayPerson(lead?.assigned_to)], [t("resources.sourceCall"), objectId(lead?.source_call) ? t("dashboard.callNumber", { id: objectId(lead?.source_call) ?? "" }) : t("common.none")], [t("resources.created"), formatDate(lead?.created_at)], [t("resources.updated"), formatDate(lead?.updated_at)], [t("resources.customFields"), <StructuredDataValue key="lead-custom-data" value={lead?.custom_data ?? {}} />]]} />;
+
+  const client = resolveRef(lead.client, clients.data);
+  const status = resolveRef(lead.status, statuses.data);
+  const sourceCall = objectId(lead.source_call);
+  return (
+    <DetailLayout
+      title={lead.title ?? t("resources.lead")}
+      sections={[
+        [t("resources.client"), client ? <Link key="client" className="text-primary hover:underline" href={`/clients/${client.id}`}>{client.name || client.phone || `#${client.id}`}</Link> : <ClientLabel key="client" id={objectId(lead.client)} />],
+        [t("resources.status"), <StatusBadge key="status" value={status?.name ?? `#${objectId(lead.status) ?? ""}`} color={status?.color} />],
+        [t("resources.assignedOperator"), displayPerson(lead.assigned_to)],
+        [t("resources.sourceCall"), sourceCall ? <Link key="call" className="text-primary hover:underline" href={`/calls/${sourceCall}`}>{t("dashboard.callNumber", { id: sourceCall })}</Link> : t("common.none")],
+        [t("resources.createdVia"), lead.created_via ?? t("common.manual")],
+        [t("resources.created"), formatDate(lead.created_at)],
+        [t("resources.updated"), formatDate(lead.updated_at)],
+        [t("resources.customFields"), <StructuredDataValue key="lead-custom-data" value={lead.custom_data ?? {}} />],
+      ]}
+    />
+  );
 }
 
 export function ClientDetail({ id }: { id: string }) {
   const t = useT();
   const { formatDate } = useFormatters();
   const clientItem = useApiItem(clientsApi.get, id, demoClients.find((item) => String(item.id) === id));
+  const leads = useApiResource(leadsApi.list, demoLeads);
+  const calls = useApiResource(callsApi.list, demoCalls);
   const client = clientItem.data;
   if (clientItem.loading) return <TableSkeleton />;
   if (clientItem.error) return <ErrorState title={t("resources.loadClientError")} description={clientItem.error} onRetry={clientItem.reload} />;
   if (!client) return <EmptyState title={t("resources.clientNotFound")} description={t("resources.clientNotFoundDescription")} />;
-  return <DetailLayout title={client?.name ?? client?.phone ?? t("resources.client")} sections={[[t("resources.phone"), client?.phone], [t("resources.createdVia"), client?.created_via], [t("resources.created"), formatDate(client?.created_at)], [t("resources.updated"), formatDate(client?.updated_at)], [t("resources.customData"), <StructuredDataValue key="client-custom-data" value={client?.custom_data ?? {}} />], [t("resources.relatedLeads"), t("resources.relationshipHint")], [t("resources.relatedCalls"), t("resources.matchingCallsHint")]]} />;
+
+  const relatedLeads = leads.data.filter((lead) => String(objectId(lead.client)) === String(client.id));
+  // Calls carry no client FK, so they are matched on the normalized phone.
+  const relatedCalls = client.phone ? calls.data.filter((call) => call.client_phone === client.phone) : [];
+  return (
+    <DetailLayout
+      title={client.name ?? client.phone ?? t("resources.client")}
+      sections={[
+        [t("resources.phone"), client.phone],
+        [t("resources.createdVia"), client.created_via ?? t("common.manual")],
+        [t("resources.created"), formatDate(client.created_at)],
+        [t("resources.updated"), formatDate(client.updated_at)],
+        [t("resources.customData"), <StructuredDataValue key="client-custom-data" value={client.custom_data ?? {}} />],
+        [
+          t("resources.relatedLeads"),
+          relatedLeads.length === 0 ? <span key="no-leads" className="text-muted-foreground">{t("common.none")}</span> : (
+            <div key="leads" className="space-y-1">
+              {relatedLeads.map((lead) => <Link key={lead.id} className="block text-primary hover:underline" href={`/leads/${lead.id}`}>{lead.title ?? t("resources.untitledLead")}</Link>)}
+            </div>
+          ),
+        ],
+        [
+          t("resources.relatedCalls"),
+          relatedCalls.length === 0 ? <span key="no-calls" className="text-muted-foreground">{t("common.none")}</span> : (
+            <div key="calls" className="space-y-1">
+              {relatedCalls.map((call) => <Link key={call.id} className="block text-primary hover:underline" href={`/calls/${call.id}`}>{t("dashboard.callNumber", { id: call.id })} · {formatDate(call.started_at)}</Link>)}
+            </div>
+          ),
+        ],
+      ]}
+    />
+  );
 }
 
 function DetailLayout({ title, sections }: { title: string; sections: [string, React.ReactNode][] }) {

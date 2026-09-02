@@ -15,6 +15,17 @@ export function isPaginated<T>(payload: ApiList<T>): payload is Paginated<T> {
   return !Array.isArray(payload);
 }
 
+/**
+ * List endpoints return related records as bare IDs. Resolves one against an
+ * already-loaded list so the UI can show a name instead of `#42`.
+ */
+export function resolveRef<T extends { id: ID }>(value: unknown, items: T[]): T | undefined {
+  if (value && typeof value === "object" && "id" in value) return value as T;
+  const id = objectId(value);
+  if (id === undefined || id === null) return undefined;
+  return items.find((item) => String(item.id) === String(id));
+}
+
 export function objectId(value: unknown): ID | undefined {
   if (typeof value === "object" && value && "id" in value) return (value as { id: ID }).id;
   if (typeof value === "string" || typeof value === "number") return value;
