@@ -7,6 +7,7 @@ import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
 import { useLabels } from "@/i18n/use-labels";
 import { demoAnalyses, demoCalls } from "@/lib/data/demo";
+import { AudioLines } from "lucide-react";
 import { objectId } from "@/lib/utils/format";
 import { useApiResource } from "@/hooks/use-api-resource";
 import { useDebounced } from "@/hooks/use-debounced";
@@ -68,7 +69,12 @@ export function CallsPage() {
             rowKey={(row) => String(row.id)}
             onRowClick={(row) => router.push(`/calls/${row.id}`)}
             columns={[
-              { header: t("calls.clientPhone"), cell: (row) => row.client_phone ?? t("common.unknown") },
+              { header: t("calls.clientPhone"), cell: (row) => (
+                <span className="flex items-center gap-2">
+                  {row.has_audio ? <AudioLines className="h-4 w-4 shrink-0 text-primary" aria-label={t("player.hasRecording")} /> : null}
+                  {row.client_phone ?? t("common.unknown")}
+                </span>
+              ) },
               { header: t("calls.operator"), cell: (row) => labels.person(row.operator, row.operator_detail) },
               { header: t("calls.direction"), cell: (row) => { const direction = row.direction ?? "unknown"; const known = (CALL_DIRECTIONS as readonly string[]).includes(direction); return <Badge tone={known && direction !== "unknown" ? "ai" : "neutral"}>{known ? t(`calls.directions.${direction}`) : direction}</Badge>; } },
               { header: t("calls.started"), cell: (row) => formatDate(row.started_at) },

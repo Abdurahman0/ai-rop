@@ -534,6 +534,7 @@
     "jumpToSegment": "Yozuvni shu gapga o‘tkazish",
     "loadError": "Yozuvni yuklab bo‘lmadi.",
     "noAudio": "Bu qo‘ng‘iroqqa yozuv biriktirilmagan.",
-    "followingAudio": "Transkript yozuvga ergashadi"
+    "followingAudio": "Transkript yozuvga ergashadi",
+    "hasRecording": "Yozuv mavjud"
   }
 }

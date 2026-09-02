@@ -131,11 +131,6 @@ function TranscriptPanel({
           </div>
         </div>
       </div>
-      {audio.available || audio.error ? (
-        <div className="border-b border-border px-5 py-3">
-          <AudioPlayer audio={audio} />
-        </div>
-      ) : null}
       {loading ? <TranscriptSkeleton /> : error ? <ErrorState title={t("transcript.loadError")} description={error} onRetry={onRetry} /> : segments.length ? (
         <CardContent className="space-y-1" ref={listRef} onWheel={() => { followRef.current = false; }}>
           {segments.map((segment, index) => {
@@ -234,6 +229,8 @@ export function CallDetail({ id }: { id: string }) {
             <CallMeta icon={<Sparkles className="h-4 w-4" />} label={t("calls.started")} value={formatDate(call.started_at)} />
           </div>
         </div>
+        {/* The recording is the first thing an operator wants: keep it above the fold. */}
+        {audio.available || audio.error ? <AudioPlayer audio={audio} className="mt-5" /> : null}
       </section>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem] xl:grid-cols-[minmax(0,1fr)_18rem]">

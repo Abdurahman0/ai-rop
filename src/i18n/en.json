@@ -534,6 +534,7 @@
     "jumpToSegment": "Jump the recording to this line",
     "loadError": "The recording could not be loaded.",
     "noAudio": "No recording is attached to this call.",
-    "followingAudio": "Transcript follows the recording"
+    "followingAudio": "Transcript follows the recording",
+    "hasRecording": "Recording available"
   }
 }

@@ -55,10 +55,10 @@ export function formatTime(value?: string, fallback = "Not recorded") {
 }
 
 export function formatDuration(seconds?: number | null, fallback = "Not recorded") {
-  if (!seconds && seconds !== 0) return fallback;
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
+  if (seconds === null || seconds === undefined || !Number.isFinite(seconds)) return fallback;
+  // Audio durations are floats; the clock must stay whole seconds.
+  const total = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(total / 60)}:${`${total % 60}`.padStart(2, "0")}`;
 }
 
 export function titleCase(value?: string) {
