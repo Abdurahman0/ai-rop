@@ -524,5 +524,16 @@
       "date": "Date",
       "phone": "Phone"
     }
+  },
+  "player": {
+    "play": "Play recording",
+    "pause": "Pause recording",
+    "seek": "Seek in the recording",
+    "skipBack": "Back {seconds} seconds",
+    "skipForward": "Forward {seconds} seconds",
+    "jumpToSegment": "Jump the recording to this line",
+    "loadError": "The recording could not be loaded.",
+    "noAudio": "No recording is attached to this call.",
+    "followingAudio": "Transcript follows the recording"
   }
 }

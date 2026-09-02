@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, Clock, Phone, Sparkles, UserRound } from "lucide-react";
 import { analysesApi, callsApi, transcriptsApi } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
@@ -14,6 +14,7 @@ import { useApiResource } from "@/hooks/use-api-resource";
 import { CALL_DIRECTIONS, CALL_STAGES, SKIP_REASONS, type Analysis, type Call, type Transcript, type TranscriptSegment } from "@/types/domain";
 import { Badge, ScoreBadge, StatusBadge } from "@/components/ui/badge";
 import { AIScore, aiScoreLabel } from "@/components/ui/ai-score";
+import { activeSegmentIndex, AudioPlayer, useTranscriptAudio } from "@/components/ui/audio-player";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ExtractedFields } from "@/components/ui/extracted-fields";
 import { AiEvaluationPanel } from "@/components/ui/structured-ai-data";
@@ -97,8 +98,21 @@ function TranscriptPanel({
   const { formatDate, formatTime, formatDuration } = useFormatters();
   const labels = useLabels();
   const [activeSegment, setActiveSegment] = useState<string | null>(null);
-  const segments = Array.isArray(transcript?.segments) ? (transcript.segments as TranscriptSegment[]) : [];
+  const segments = useMemo(() => (Array.isArray(transcript?.segments) ? (transcript.segments as TranscriptSegment[]) : []), [transcript]);
   const hasTranscriptText = !!transcript?.text;
+
+  // The recording, when the backend exposes one, drives the transcript.
+  const audio = useTranscriptAudio(call.recording_url ?? call.audio_url ?? transcript?.audio_url);
+  const playingIndex = audio.available ? activeSegmentIndex(segments, audio.currentTime) : -1;
+  const listRef = useRef<HTMLDivElement>(null);
+  const followRef = useRef(true);
+
+  // Keep the spoken line in view while playing, unless the reader scrolled away.
+  useEffect(() => {
+    if (!audio.playing || playingIndex < 0 || !followRef.current) return;
+    const node = listRef.current?.querySelector<HTMLElement>(`[data-segment-index="${playingIndex}"]`);
+    node?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [audio.playing, playingIndex]);
 
   return (
     <Card>
@@ -117,30 +131,46 @@ function TranscriptPanel({
           </div>
         </div>
       </div>
+      {audio.available || audio.error ? (
+        <div className="border-b border-border px-5 py-3">
+          <AudioPlayer audio={audio} />
+        </div>
+      ) : null}
       {loading ? <TranscriptSkeleton /> : error ? <ErrorState title={t("transcript.loadError")} description={error} onRetry={onRetry} /> : segments.length ? (
-        <CardContent className="space-y-1">
+        <CardContent className="space-y-1" ref={listRef} onWheel={() => { followRef.current = false; }}>
           {segments.map((segment, index) => {
             const speaker = normalizeSpeaker(segment.speaker, t);
             const key = String(segment.id ?? `${segment.speaker ?? "speaker"}-${index}`);
-            const active = activeSegment === key;
+            const spoken = playingIndex === index;
+            const active = spoken || activeSegment === key;
+            const played = audio.available && segment.start !== undefined && audio.currentTime > segment.start && !spoken;
             const time = formatSegmentTime(segment);
             const client = speaker.side === "client";
             return (
               <button
                 key={key}
                 type="button"
+                data-segment-index={index}
+                aria-current={spoken ? "true" : undefined}
                 className={`group grid w-full gap-3 rounded-lg px-3 py-3 text-left transition duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary sm:grid-cols-[6.5rem_minmax(0,1fr)] ${
                   client ? "sm:grid-cols-[minmax(0,1fr)_6.5rem]" : ""
-                } ${active ? "bg-primary/10" : "hover:bg-muted/70"}`}
-                aria-label={t("transcript.focusSegment")}
-                onClick={() => setActiveSegment(key)}
+                } ${spoken ? "bg-primary/10 ring-1 ring-primary/30" : active ? "bg-primary/10" : "hover:bg-muted/70"}`}
+                aria-label={audio.available ? t("player.jumpToSegment") : t("transcript.focusSegment")}
+                onClick={() => {
+                  setActiveSegment(key);
+                  // Clicking a line scrubs the recording to it.
+                  if (audio.available && segment.start !== undefined) {
+                    followRef.current = true;
+                    audio.seek(segment.start);
+                  }
+                }}
               >
                 <div className={`${client ? "sm:order-2 sm:text-right" : ""}`}>
                   <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${speaker.side === "sales" ? "text-indigo-600 dark:text-indigo-300" : client ? "text-emerald-600 dark:text-emerald-300" : "text-muted-foreground"}`}>{speaker.label}</p>
                   {time ? <p className={`mt-1 text-xs transition ${active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"}`}>{time}</p> : null}
                 </div>
-                <div className={`${client ? "sm:order-1 sm:ml-auto" : ""} w-fit max-w-full sm:max-w-[56rem] rounded-lg border border-border bg-background/70 px-4 py-3 shadow-sm`}>
-                  <p className="leading-7 text-foreground">{segment.text ?? t("transcript.noTranscript")}</p>
+                <div className={`${client ? "sm:order-1 sm:ml-auto" : ""} w-fit max-w-full sm:max-w-[56rem] rounded-lg border px-4 py-3 shadow-sm transition duration-[var(--motion-fast)] ${spoken ? "border-primary/40 bg-primary/5" : "border-border bg-background/70"}`}>
+                  <p className={`leading-7 transition ${spoken ? "text-foreground" : played ? "text-muted-foreground" : "text-foreground"}`}>{segment.text ?? t("transcript.noTranscript")}</p>
                 </div>
               </button>
             );

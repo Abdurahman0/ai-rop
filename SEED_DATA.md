@@ -20,6 +20,7 @@ to `FRONTEND.md` (JWT + rotation, tenancy, pagination at 50, dynamic
 | `/api/leads/` | **14** | spread across all statuses · mix of `created_via` · some `assigned_to` · some `source_call` |
 | `/api/calls/` | **12** | **all 8 `stage` values** · all 3 directions · `failed` with a real `error` · spread over the last 7 days |
 | `/api/transcripts/` | **6** | 1 with `segments: []` · 1 with 30+ segments · 1 with 3–4 speaker labels |
+| **call recordings** | **3** | a playable URL on the call — see §8b, the synced player is built and idle without it |
 | `/api/analyses/` | **10** | `lead_created` both ways · **all 4 `skip_reason` codes** · rich `extracted_fields` |
 
 Plus **one resource with 60+ rows** (leads is easiest) so pagination is real, and
@@ -293,6 +294,44 @@ and we will label them properly in all three languages.
 
 ---
 
+## 8b. Call recordings — the player is built and waiting for a URL
+
+The transcript now works as a synced player: pressing play highlights each line
+as it is spoken, dims the lines already played, auto-scrolls to keep the current
+line in view, and clicking any line scrubs the audio to that moment. Segment
+`start`/`end` seconds are all it needs, and those already arrive.
+
+**The one missing piece is a URL.** The pipeline clearly holds the audio — there
+is an `audio_stored` stage — but no endpoint or field exposes it, so the player
+never renders.
+
+Please add one of:
+
+```json
+{ "id": 15, "...": "...", "recording_url": "/api/calls/15/recording/" }
+```
+
+or the same value as `audio_url`, on the call (or on the transcript). The
+frontend reads `call.recording_url` → `call.audio_url` → `transcript.audio_url`,
+so any of those three names works — pick whichever fits your model.
+
+Two things worth deciding together:
+
+1. **Auth.** If the URL is relative it is fetched through the authenticated
+   proxy as a blob, because an `<audio src>` element cannot carry the bearer
+   token. That works today. If instead you return a **signed/expiring absolute
+   URL** (S3 or similar), the player uses it directly — also supported. What it
+   cannot use is an absolute URL on a protected host with no signature.
+2. **Range requests.** Blob fetching pulls the whole file before playback. For
+   long calls, `Accept-Ranges: bytes` on a public/signed URL gives instant
+   seeking. Fine either way for a demo; worth it for hour-long recordings.
+
+Format: `audio/wav`, `audio/mpeg` or `audio/ogg` — whatever the provider stores.
+
+**For the seed:** attach a real recording to at least 3 calls, one of them the
+call with the 30+ segment transcript from §7, and leave one `completed` call
+without audio so the no-recording path stays visible.
+
 ## 9. Open questions — these block UI we cannot build
 
 1. **Operator names.** `call.operator` and `lead.assigned_to` are user IDs, and
@@ -313,7 +352,10 @@ and we will label them properly in all three languages.
 4. **Calls ↔ clients.** Calls carry `client_phone` but no client FK, so the
    client page matches related calls by exact normalized phone. Is that safe, or
    should we not show that section?
-5. **Ordering.** Is list order stable (`-created_at`)? "Recent calls" and
+5. **Recording URL** — see §8b. This is the highest-value single field you can
+   add right now: the whole listen-along transcript experience is implemented
+   and invisible until it exists.
+6. **Ordering.** Is list order stable (`-created_at`)? "Recent calls" and
    "Recently created leads" assume newest-first from the API.
 
 ---
@@ -332,7 +374,7 @@ NEXT_PUBLIC_API_URL=/backend-api
 | --- | --- |
 | `/dashboard` | 4 KPIs non-zero · chart varies day to day · pipeline columns all populated |
 | `/calls` | all 8 stage badges visible · a Failed row with a tooltip reason |
-| `/calls/{id}` | summary + extracted fields + a long transcript + lead result |
+| `/calls/{id}` | summary + extracted fields + a long transcript + lead result · **audio plays and the transcript follows it** |
 | `/transcripts/{id}` | a scrolling multi-speaker conversation |
 | `/ai-reviews` | both lead-created states · a humanized skip reason with detail |
 | `/leads` | client and status names (not `#42`) · kanban drag persists |

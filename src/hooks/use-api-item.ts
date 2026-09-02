@@ -15,26 +15,29 @@ type ItemState<T> = {
 
 export function useApiItem<T>(
   loader: (id: ID, token?: string | null) => Promise<T>,
-  id: ID,
+  /** Skips the request entirely when there is no id yet. */
+  id: ID | null | undefined,
   fallback?: T,
 ): ItemState<T> {
   const accessToken = useAuthStore((state) => state.accessToken);
+  const enabled = id !== undefined && id !== null && id !== "";
   const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!enabled) return;
     setLoading(true);
     setError(null);
     try {
-      setData(await loader(id));
+      setData(await loader(id as ID));
     } catch (err) {
       setData(DEMO_MODE && fallback ? fallback : null);
       setError(err instanceof ApiError ? err.friendlyMessage : err instanceof Error ? err.message : "errors.loadData");
     } finally {
       setLoading(false);
     }
-  }, [fallback, id, loader]);
+  }, [enabled, fallback, id, loader]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {

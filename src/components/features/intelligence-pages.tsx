@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { analysesApi, callsApi, transcriptsApi } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
@@ -12,6 +12,7 @@ import { useApiItem } from "@/hooks/use-api-item";
 import { useApiResource } from "@/hooks/use-api-resource";
 import { SKIP_REASONS, type TranscriptSegment } from "@/types/domain";
 import { Badge, ScoreBadge } from "@/components/ui/badge";
+import { activeSegmentIndex, AudioPlayer, useTranscriptAudio } from "@/components/ui/audio-player";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/table";
@@ -120,23 +121,69 @@ export function TranscriptDetail({ id }: { id: string }) {
   const t = useT();
   const transcriptItem = useApiItem(transcriptsApi.get, id, demoTranscripts.find((item) => String(item.id) === id));
   const transcript = transcriptItem.data;
+  const callId = objectId(transcript?.call);
+  // The recording hangs off the call, so it is fetched alongside the transcript.
+  const callItem = useApiItem(callsApi.get, callId, demoCalls.find((item) => String(item.id) === String(callId)));
+  const call = callItem.data;
+  const segments = useMemo(() => (Array.isArray(transcript?.segments) ? (transcript.segments as TranscriptSegment[]) : []), [transcript]);
+  const audio = useTranscriptAudio(call?.recording_url ?? call?.audio_url ?? transcript?.audio_url);
+  const playingIndex = audio.available ? activeSegmentIndex(segments, audio.currentTime) : -1;
+  const listRef = useRef<HTMLDivElement>(null);
+  const followRef = useRef(true);
+
+  useEffect(() => {
+    if (!audio.playing || playingIndex < 0 || !followRef.current) return;
+    listRef.current?.querySelector<HTMLElement>(`[data-segment-index="${playingIndex}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [audio.playing, playingIndex]);
+
   if (transcriptItem.loading) return <TableSkeleton />;
   if (transcriptItem.error) return <ErrorState title={t("intelligence.loadTranscriptError")} description={transcriptItem.error} onRetry={transcriptItem.reload} />;
   if (!transcript) return <EmptyState title={t("intelligence.transcriptNotFound")} description={t("intelligence.transcriptNotFoundDescription")} />;
+
   return (
     <>
-      <PageHeader title={`#${transcript?.id ?? id}`} description={`${t("dashboard.callNumber", { id: objectId(transcript?.call) ?? t("common.na") })} · ${transcript?.provider ?? t("intelligence.providerNotRecorded")}`} />
+      <PageHeader title={`#${transcript.id ?? id}`} description={`${t("dashboard.callNumber", { id: callId ?? t("common.na") })} · ${transcript.provider ?? t("intelligence.providerNotRecorded")}`} />
       <Card>
         <CardHeader title={t("intelligence.fullTranscript")} />
-        <CardContent className="space-y-3">
-          {Array.isArray(transcript?.segments) ? (transcript.segments as TranscriptSegment[]).map((segment, index) => (
-            <div key={index} className="rounded-lg border border-border bg-background/60 p-4">
-              <Badge tone="neutral">{t("intelligence.speaker", { number: speakerIndex(segment.speaker) ?? index + 1 })}</Badge>
-              <p className="mt-3 leading-7">{segment.text}</p>
-            </div>
-          )) : <p className="whitespace-pre-wrap leading-8">{transcript?.text ?? t("intelligence.noTranscriptText")}</p>}
+        {audio.available || audio.error ? (
+          <div className="border-b border-border px-5 pb-4">
+            <AudioPlayer audio={audio} />
+          </div>
+        ) : null}
+        <CardContent className="space-y-3" ref={listRef} onWheel={() => { followRef.current = false; }}>
+          {segments.length ? segments.map((segment, index) => {
+            const spoken = playingIndex === index;
+            return (
+              <button
+                key={index}
+                type="button"
+                data-segment-index={index}
+                aria-current={spoken ? "true" : undefined}
+                disabled={!audio.available || segment.start === undefined}
+                onClick={() => {
+                  followRef.current = true;
+                  if (segment.start !== undefined) audio.seek(segment.start);
+                }}
+                className={`block w-full rounded-lg border p-4 text-left transition duration-[var(--motion-fast)] disabled:cursor-default ${
+                  spoken ? "border-primary/40 bg-primary/5 ring-1 ring-primary/30" : "border-border bg-background/60"
+                } ${audio.available && segment.start !== undefined ? "hover:bg-muted/70" : ""}`}
+              >
+                <div className="flex items-center gap-2">
+                  <Badge tone={spoken ? "ai" : "neutral"}>{t("intelligence.speaker", { number: speakerIndex(segment.speaker) ?? index + 1 })}</Badge>
+                  {segment.start !== undefined ? <span className="font-mono text-xs text-muted-foreground">{formatSeconds(segment.start)}</span> : null}
+                </div>
+                <p className={`mt-3 leading-7 ${spoken ? "text-foreground" : "text-foreground"}`}>{segment.text}</p>
+              </button>
+            );
+          }) : <p className="whitespace-pre-wrap leading-8">{transcript.text ?? t("intelligence.noTranscriptText")}</p>}
         </CardContent>
       </Card>
     </>
   );
+}
+
+/** `MM:SS` from a segment offset in seconds. */
+function formatSeconds(value: number) {
+  const total = Math.max(0, Math.floor(value));
+  return `${Math.floor(total / 60)}:${`${total % 60}`.padStart(2, "0")}`;
 }

@@ -33,6 +33,13 @@ export type Call = {
   stage?: CallStage;
   error?: string | null;
   created_at?: string;
+  /**
+   * Playable recording. Not in the API contract yet — the pipeline stores audio
+   * (`audio_stored` stage) but does not expose a URL. The player renders only
+   * when one of these arrives, so the backend can add either name.
+   */
+  recording_url?: string | null;
+  audio_url?: string | null;
 };
 
 export type Analysis = {
@@ -61,6 +68,8 @@ export type Transcript = {
   id: ID;
   call?: ID | Call;
   text?: string;
+  /** Same as `Call.recording_url`, if the backend hangs audio off the transcript. */
+  audio_url?: string | null;
   segments?: TranscriptSegment[] | Record<string, unknown> | unknown[] | null;
   provider?: string;
   created_at?: string;

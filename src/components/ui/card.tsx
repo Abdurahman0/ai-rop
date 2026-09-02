@@ -1,4 +1,4 @@
-import type { HTMLAttributes, ReactNode } from "react";
+import type { HTMLAttributes, Ref, ReactNode } from "react";
 
 export function Card({ className = "", ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div className={`rounded-lg border border-border bg-card shadow-sm transition duration-[var(--motion-normal)] ${className}`} {...props} />;
@@ -16,6 +16,6 @@ export function CardHeader({ title, eyebrow, action }: { title: string; eyebrow?
   );
 }
 
-export function CardContent({ className = "", ...props }: HTMLAttributes<HTMLDivElement>) {
+export function CardContent({ className = "", ...props }: HTMLAttributes<HTMLDivElement> & { ref?: Ref<HTMLDivElement> }) {
   return <div className={`p-5 ${className}`} {...props} />;
 }
