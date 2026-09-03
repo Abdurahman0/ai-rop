@@ -733,7 +733,9 @@ export function LeadDetail({ id }: { id: string }) {
         [t("resources.createdVia"), labels.createdVia(lead.created_via ?? "manual")],
         [t("resources.created"), formatDate(lead.created_at)],
         [t("resources.updated"), formatDate(lead.updated_at)],
-        [t("resources.customFields"), <StructuredDataValue key="lead-custom-data" value={lead.custom_data ?? {}} />],
+        ...(hasValues(lead.custom_data)
+          ? [[t("resources.customFields"), <StructuredDataValue key="lead-custom-data" value={lead.custom_data} />] as [string, React.ReactNode]]
+          : []),
       ]}
     />
   );
@@ -763,7 +765,9 @@ export function ClientDetail({ id }: { id: string }) {
         [t("resources.createdVia"), labels.createdVia(client.created_via ?? "manual")],
         [t("resources.created"), formatDate(client.created_at)],
         [t("resources.updated"), formatDate(client.updated_at)],
-        [t("resources.customData"), <StructuredDataValue key="client-custom-data" value={client.custom_data ?? {}} />],
+        ...(hasValues(client.custom_data)
+          ? [[t("resources.customData"), <StructuredDataValue key="client-custom-data" value={client.custom_data} />] as [string, React.ReactNode]]
+          : []),
         [
           t("resources.relatedLeads"),
           relatedLeads.length === 0 ? <span key="no-leads" className="text-muted-foreground">{t("common.none")}</span> : (
@@ -783,6 +787,11 @@ export function ClientDetail({ id }: { id: string }) {
       ]}
     />
   );
+}
+
+/** An empty custom_data object renders as a stray empty panel — skip it. */
+function hasValues(value?: Record<string, unknown> | null) {
+  return !!value && Object.keys(value).length > 0;
 }
 
 function DetailLayout({ title, sections }: { title: string; sections: [string, React.ReactNode][] }) {
