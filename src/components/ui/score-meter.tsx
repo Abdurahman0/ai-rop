@@ -11,18 +11,12 @@ export function scoreBand(score?: number | null) {
   return "critical" as const;
 }
 
-const bandInk: Record<string, string> = {
-  strong: "text-emerald-600 dark:text-emerald-400",
-  attention: "text-amber-600 dark:text-amber-400",
-  critical: "text-red-600 dark:text-red-400",
-  none: "text-muted-foreground",
-};
-
-const bandFill: Record<string, string> = {
-  strong: "bg-emerald-500",
-  attention: "bg-amber-500",
-  critical: "bg-red-500",
-  none: "bg-muted-foreground/40",
+/** The one status ramp, validated against both surfaces. */
+export const bandColor: Record<string, string> = {
+  strong: "var(--score-strong)",
+  attention: "var(--score-attention)",
+  critical: "var(--score-critical)",
+  none: "var(--muted-foreground)",
 };
 
 /** A score as a number plus a proportional track — a meter, not a chart. */
@@ -34,12 +28,12 @@ export function ScoreMeter({ score, size = "md" }: { score?: number | null; size
 
   return (
     <div>
-      <p className={`font-semibold tabular-nums ${text} ${bandInk[band]}`}>
+      <p className={`font-semibold tabular-nums ${text}`} style={{ color: bandColor[band] }}>
         {band === "none" ? t("common.notAnalyzed") : Math.round(value)}
         {band === "none" ? null : <span className="ml-1 text-sm font-normal text-muted-foreground">/100</span>}
       </p>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" role="img" aria-label={`${Math.round(value)} / 100`}>
-        <div className={`h-full rounded-full ${bandFill[band]} transition-[width] duration-[var(--motion-slow)]`} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+        <div className="h-full rounded-full transition-[width] duration-[var(--motion-slow)]" style={{ width: `${Math.max(0, Math.min(100, value))}%`, background: bandColor[band] }} />
       </div>
     </div>
   );
@@ -55,9 +49,9 @@ export function DistributionBar({ distribution }: { distribution?: ScoreDistribu
   if (total === 0) return <span className="text-xs text-muted-foreground">—</span>;
 
   const parts = [
-    { key: "strong", value: strong, fill: bandFill.strong, label: t("users.strong") },
-    { key: "attention", value: attention, fill: bandFill.attention, label: t("users.attention") },
-    { key: "critical", value: critical, fill: bandFill.critical, label: t("users.critical") },
+    { key: "strong", value: strong, fill: bandColor.strong, label: t("users.strong") },
+    { key: "attention", value: attention, fill: bandColor.attention, label: t("users.attention") },
+    { key: "critical", value: critical, fill: bandColor.critical, label: t("users.critical") },
   ];
 
   return (
@@ -65,13 +59,13 @@ export function DistributionBar({ distribution }: { distribution?: ScoreDistribu
       {/* 2px gaps between segments so adjacent fills never blur together */}
       <div className="flex h-2 gap-0.5 overflow-hidden rounded-full">
         {parts.filter((part) => part.value > 0).map((part) => (
-          <span key={part.key} className={`${part.fill} h-full rounded-full`} style={{ width: `${(part.value / total) * 100}%` }} title={`${part.label}: ${part.value}`} />
+          <span key={part.key} className="h-full rounded-full" style={{ width: `${(part.value / total) * 100}%`, background: part.fill }} title={`${part.label}: ${part.value}`} />
         ))}
       </div>
       <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
         {parts.filter((part) => part.value > 0).map((part) => (
           <span key={part.key} className="flex items-center gap-1">
-            <span className={`h-1.5 w-1.5 rounded-full ${part.fill}`} aria-hidden />
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: part.fill }} aria-hidden />
             {part.label} <b className="text-foreground">{part.value}</b>
           </span>
         ))}
@@ -105,8 +99,8 @@ export function CriteriaBars({ criteria, labels }: { criteria?: OperatorCriteria
             </div>
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
               <div
-                className={`h-full rounded-full ${ratio >= 0.8 ? "bg-emerald-500" : ratio >= 0.5 ? "bg-primary" : "bg-amber-500"}`}
-                style={{ width: `${ratio * 100}%` }}
+                className="h-full rounded-full"
+                style={{ width: `${ratio * 100}%`, background: ratio >= 0.8 ? bandColor.strong : ratio >= 0.5 ? "var(--primary)" : bandColor.attention }}
               />
             </div>
           </div>

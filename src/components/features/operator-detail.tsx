@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, PhoneCall, Sparkles, Target, Timer } from "lucide-react";
 import { statsApi, usersApi } from "@/lib/api/client";
-import { useT } from "@/i18n/use-t";
+import { dictionaries } from "@/i18n/dictionaries";
+import { useLocale, useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
 import { useApiItem } from "@/hooks/use-api-item";
 import { useStats } from "@/hooks/use-stats";
@@ -12,7 +13,7 @@ import type { ID, OperatorStatsDetail, TimelinePoint } from "@/types/domain";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DateRangeFilter, type DateRange } from "@/components/ui/date-picker";
-import { CriteriaBars, DistributionBar, ScoreMeter, scoreBand } from "@/components/ui/score-meter";
+import { bandColor, CriteriaBars, DistributionBar, ScoreMeter, scoreBand } from "@/components/ui/score-meter";
 import { DataTable } from "@/components/ui/table";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/states";
 import { PageHeader } from "@/components/shell/page-header";
@@ -26,63 +27,93 @@ function endOfDayISO(date: Date) {
 }
 
 /**
- * One operator's score over the window. A single series whose job is the trend,
- * so it is drawn in one hue — no legend needed, the card title names it.
+ * The operator's score per day. Columns, not a line: the days are discrete and
+ * a short window (often a single day) has nothing to join up. Each bar is
+ * coloured by its band and carries its number, so the status is never colour
+ * alone.
  */
 function ScoreTrend({ timeline }: { timeline: TimelinePoint[] }) {
   const t = useT();
+  const { locale } = useLocale();
   const [active, setActive] = useState<number | null>(null);
   const points = timeline.filter((point) => point.score !== null && point.score !== undefined);
 
   if (points.length === 0) return <p className="py-8 text-center text-sm text-muted-foreground">{t("users.noStats")}</p>;
 
   const W = 640;
-  const H = 180;
-  const pad = 26;
-  const x = (index: number) => (points.length === 1 ? W / 2 : pad + (index / (points.length - 1)) * (W - pad * 2));
-  const y = (value: number) => pad + (1 - value / 100) * (H - pad * 2);
-  const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${x(index)} ${y(Number(point.score))}`).join(" ");
-
+  const H = 190;
+  const padLeft = 30;
+  const padRight = 14;
+  const padTop = 22;
+  const padBottom = 30;
+  const plotW = W - padLeft - padRight;
+  const plotH = H - padTop - padBottom;
+  const slot = plotW / points.length;
+  // wide enough to read at one day, never so wide it looks like a block
+  const barW = Math.max(10, Math.min(56, slot - 10));
+  const x = (index: number) => padLeft + slot * index + slot / 2;
+  const y = (value: number) => padTop + (1 - value / 100) * plotH;
+  const months = dictionaries[locale].calendar.months;
+  const labelFor = (point: TimelinePoint) => {
+    const day = new Date(`${point.date}T00:00:00`);
+    return `${months[day.getMonth()].slice(0, 3)} ${day.getDate()}`;
+  };
+  const tickEvery = Math.max(1, Math.ceil(points.length / 8));
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-44 w-full" role="img" aria-label={t("users.score")} onMouseLeave={() => setActive(null)}>
-      <defs>
-        <clipPath id="trend-reveal">
-          <rect className="chart-wipe" x="0" y="0" width={W} height={H} />
-        </clipPath>
-      </defs>
-      {/* the score bands, so a point reads as good or bad without a legend */}
-      {[
-        { from: 85, to: 100, className: "text-emerald-500/10" },
-        { from: 70, to: 85, className: "text-amber-500/10" },
-        { from: 0, to: 70, className: "text-red-500/10" },
-      ].map((band) => (
-        <rect key={band.from} x={pad} y={y(band.to)} width={W - pad * 2} height={y(band.from) - y(band.to)} className={`fill-current ${band.className}`} />
-      ))}
-      {[0, 50, 100].map((tick) => (
-        <g key={tick}>
-          <line x1={pad} x2={W - pad} y1={y(tick)} y2={y(tick)} stroke="currentColor" className="text-border" strokeWidth="1" />
-          <text x={pad - 6} y={y(tick) + 4} textAnchor="end" fontSize="10" className="fill-current text-muted-foreground">{tick}</text>
-        </g>
-      ))}
-      <g clipPath="url(#trend-reveal)">
-        <path d={path} fill="none" stroke="var(--series-calls)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
-      {points.map((point, index) => (
-        <g key={point.date} onMouseEnter={() => setActive(index)} tabIndex={0} onFocus={() => setActive(index)} aria-label={`${point.date}: ${point.score}`}>
-          <rect x={x(index) - 14} y={pad} width="28" height={H - pad * 2} fill="transparent" />
-          <circle className="chart-dot" cx={x(index)} cy={y(Number(point.score))} r={active === index ? 5 : 3.5} fill="var(--series-calls)" stroke="var(--card)" strokeWidth="2" />
-          {active === index ? (
-            <g className="pointer-events-none">
-              <rect x={Math.min(Math.max(x(index) - 46, 4), W - 96)} y={y(Number(point.score)) - 42} width="92" height="34" rx="7" fill="var(--card)" stroke="var(--border)" />
-              <text x={Math.min(Math.max(x(index) - 46, 4), W - 96) + 8} y={y(Number(point.score)) - 27} fontSize="10" className="fill-current text-muted-foreground">{point.date}</text>
-              <text x={Math.min(Math.max(x(index) - 46, 4), W - 96) + 8} y={y(Number(point.score)) - 14} fontSize="12" fontWeight="700" className="fill-current text-foreground">
-                {Math.round(Number(point.score))} · {point.calls ?? 0} {t("users.calls").toLowerCase()}
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-48 w-full" role="img" aria-label={t("users.score")} onMouseLeave={() => setActive(null)}>
+        {[0, 50, 100].map((tick) => (
+          <g key={tick}>
+            <line x1={padLeft} x2={W - padRight} y1={y(tick)} y2={y(tick)} stroke="currentColor" className="text-border" strokeWidth="1" />
+            <text x={padLeft - 7} y={y(tick) + 4} textAnchor="end" fontSize="10" className="fill-current text-muted-foreground">{tick}</text>
+          </g>
+        ))}
+        {/* where "good" starts, so a bar can be judged without the legend */}
+        <line x1={padLeft} x2={W - padRight} y1={y(85)} y2={y(85)} stroke="currentColor" className="text-emerald-500/40" strokeWidth="1" strokeDasharray="4 4" />
+
+        {points.map((point, index) => {
+          const value = Number(point.score);
+          const band = scoreBand(value);
+          const height = Math.max(3, (value / 100) * plotH);
+          return (
+            <g key={point.date} onMouseEnter={() => setActive(index)} onFocus={() => setActive(index)} tabIndex={0} aria-label={`${labelFor(point)}: ${Math.round(value)}`}>
+              <rect x={x(index) - slot / 2} y={padTop} width={slot} height={plotH} fill="transparent" />
+              <rect
+                className="score-bar"
+                x={x(index) - barW / 2}
+                y={y(value)}
+                width={barW}
+                height={height}
+                rx="4"
+                fill={bandColor[band]}
+                opacity={active === null || active === index ? 1 : 0.55}
+                style={{ animationDelay: `${Math.min(index * 60, 600)}ms` }}
+              />
+              <text x={x(index)} y={y(value) - 7} textAnchor="middle" fontSize="11" fontWeight="700" className="fill-current text-foreground">
+                {Math.round(value)}
               </text>
+              {index % tickEvery === 0 || index === points.length - 1 ? (
+                <text x={x(index)} y={H - 10} textAnchor="middle" fontSize="10" className="fill-current text-muted-foreground">{labelFor(point)}</text>
+              ) : null}
             </g>
-          ) : null}
-        </g>
-      ))}
-    </svg>
+          );
+        })}
+      </svg>
+
+      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+        {(["strong", "attention", "critical"] as const).map((band) => (
+          <span key={band} className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full" style={{ background: bandColor[band] }} aria-hidden />
+            {t(`users.${band}`)}
+          </span>
+        ))}
+        {active !== null ? (
+          <span className="ml-auto text-foreground">
+            {labelFor(points[active])} · {points[active].calls ?? 0} {t("users.calls").toLowerCase()}
+          </span>
+        ) : null}
+      </div>
+    </div>
   );
 }
 

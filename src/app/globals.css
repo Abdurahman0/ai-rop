@@ -18,6 +18,10 @@
      surface (see the dataviz palette checks) — not an automatic dark flip. */
   --series-calls: #4f46e5;
   --series-reviews: #eb6834;
+  /* Score bands: a reserved status ramp, never reused as series colours. */
+  --score-strong: #008300;
+  --score-attention: #eda100;
+  --score-critical: #e34948;
   --motion-fast: 140ms;
   --motion-normal: 180ms;
   --motion-slow: 260ms;
@@ -41,6 +45,9 @@
 html.dark {
   --series-calls: #6366f1;
   --series-reviews: #d95926;
+  --score-strong: #1baf7a;
+  --score-attention: #c98500;
+  --score-critical: #e34948;
   --background: #08090b;
   --foreground: #f3f4f6;
   --card: #111317;
@@ -173,6 +180,16 @@ html.motion-reduced .chart-area,
 html.motion-reduced .chart-dot {
   animation: none;
   transform: none;
+}
+
+/* Score columns grow out of the baseline once the data is in. */
+.score-bar {
+  transform-origin: bottom;
+  animation: score-bar 520ms var(--motion-ease) both;
+}
+
+html.motion-reduced .score-bar {
+  animation: none;
 }
 
 /* Kanban cards fade up as they arrive in a column. */
@@ -544,5 +561,14 @@ html.motion-reduced .login-blink {
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes score-bar {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
   }
 }
