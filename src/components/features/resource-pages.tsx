@@ -261,7 +261,15 @@ function LeadKanban({ leads, statuses, clients, onOpen, onMove }: { leads: Lead[
                     draggable={!busy}
                     onDragStart={(event) => {
                       event.dataTransfer.effectAllowed = "move";
-                      setDragging(lead);
+                      // Snapshot the card while it is still painted, and grab it
+                      // where the pointer actually is, so the image tracks the
+                      // cursor instead of jumping to a corner.
+                      const rect = event.currentTarget.getBoundingClientRect();
+                      event.dataTransfer.setDragImage(event.currentTarget, event.clientX - rect.left, event.clientY - rect.top);
+                      // Blanking the source in the same tick would empty the
+                      // snapshot: hand the browser a frame first.
+                      const held = lead;
+                      requestAnimationFrame(() => setDragging(held));
                     }}
                     onDragEnd={() => setDragging(null)}
                     onClick={() => !held && onOpen(lead.id)}
