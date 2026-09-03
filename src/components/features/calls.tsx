@@ -10,6 +10,7 @@ import { demoAnalyses, demoCalls } from "@/lib/data/demo";
 import { AudioLines } from "lucide-react";
 import { objectId } from "@/lib/utils/format";
 import { useApiResource } from "@/hooks/use-api-resource";
+import { useIsAdmin } from "@/stores/session-store";
 import { useDebounced } from "@/hooks/use-debounced";
 import type { Call } from "@/types/domain";
 import { Badge, StatusBadge } from "@/components/ui/badge";
@@ -38,6 +39,7 @@ export function CallsPage() {
   const t = useT();
   const { formatDate, formatDuration } = useFormatters();
   const labels = useLabels();
+  const isAdmin = useIsAdmin();
   const [query, setQuery] = useState("");
   const [direction, setDirection] = useState("");
   const [stage, setStage] = useState("");
@@ -58,7 +60,7 @@ export function CallsPage() {
     <>
       <PageHeader
         title={t("calls.title")}
-        description={t("calls.description")}
+        description={isAdmin ? t("calls.description") : t("calls.myCalls")}
         actions={<><DateFilter value={date} onChange={setDate} /><Select label={t("calls.direction")} value={direction} onChange={setDirection} options={[{ label: t("common.all"), value: "" }, { label: t("calls.inbound"), value: "inbound" }, { label: t("calls.outbound"), value: "outbound" }]} /><Select label={t("calls.stage")} value={stage} onChange={setStage} options={[{ label: t("common.all"), value: "" }, ...CALL_STAGES.map((value) => ({ label: t(`calls.stages.${value}`), value }))]} /></>}
       />
       <Card>
@@ -75,7 +77,7 @@ export function CallsPage() {
                   {row.client_phone ?? t("common.unknown")}
                 </span>
               ) },
-              { header: t("calls.operator"), cell: (row) => labels.person(row.operator, row.operator_detail) },
+              ...(isAdmin ? [{ header: t("calls.operator"), cell: (row: Call) => labels.person(row.operator, row.operator_detail) }] : []),
               { header: t("calls.direction"), cell: (row) => { const direction = row.direction ?? "unknown"; const known = (CALL_DIRECTIONS as readonly string[]).includes(direction); return <Badge tone={known && direction !== "unknown" ? "ai" : "neutral"}>{known ? t(`calls.directions.${direction}`) : direction}</Badge>; } },
               { header: t("calls.started"), cell: (row) => formatDate(row.started_at) },
               { header: t("calls.duration"), cell: (row) => formatDuration(row.duration) },

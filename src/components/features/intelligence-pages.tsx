@@ -61,7 +61,6 @@ export function AIReviewsPage() {
               { header: t("intelligence.summary"), cell: (row) => <span className="line-clamp-2">{row.summary ?? t("intelligence.noSummary")}</span> },
               { header: t("intelligence.score"), cell: (row) => <ScoreBadge score={row.overall_score} /> },
               { header: t("intelligence.leadCreated"), cell: (row) => row.lead_created ? <Badge tone="success">{t("common.yes")}</Badge> : <span className="flex items-center gap-2"><Badge>{t("common.no")}</Badge><SkipReason reason={row.skip_reason} /></span> },
-              { header: t("intelligence.model"), cell: (row) => row.model_name ?? t("common.notRecorded") },
               { header: t("intelligence.created"), cell: (row) => formatDate(row.created_at) },
             ]}
           />

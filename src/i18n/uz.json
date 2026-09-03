@@ -171,7 +171,8 @@
       "inbound": "Kiruvchi",
       "outbound": "Chiquvchi",
       "unknown": "Noma’lum"
-    }
+    },
+    "myCalls": "Siz qabul qilgan qo‘ng‘iroqlar."
   },
   "intelligence": {
     "reviewsTitle": "AI sharhlari",
@@ -337,7 +338,9 @@
     "leadMoved": "Lead «{status}» holatiga ko‘chirildi.",
     "moveLeadError": "Lead statusini yangilab bo‘lmadi.",
     "dropHere": "Leadni shu yerga tashlang",
-    "dragHint": "Statusni o‘zgartirish uchun kartani sudrang"
+    "dragHint": "Statusni o‘zgartirish uchun kartani sudrang",
+    "readOnly": "Faqat o‘qish uchun. O‘zgartirish administratorda.",
+    "myLeads": "Sizga biriktirilgan lidlar."
   },
   "appearance": {
     "title": "Koʻrinish",
@@ -498,7 +501,12 @@
       "byudjet": "Byudjet",
       "budget": "Byudjet",
       "mahsulot": "Mahsulot",
-      "product": "Mahsulot"
+      "product": "Mahsulot",
+      "has_lead_intent": "Lead belgisi",
+      "client_name": "Mijoz ismi",
+      "sana": "Sana",
+      "narx": "Narx",
+      "telefon": "Telefon"
     }
   },
   "fields": {
@@ -582,5 +590,9 @@
       "rec3": "Salomlashish va xayrlashishni davom ettiring",
       "illustrative": "Namuna ma’lumot"
     }
+  },
+  "roles": {
+    "admin": "Administrator",
+    "operator": "Operator"
   }
 }

@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { locales, type Locale } from "@/i18n/dictionaries";
 import { useLocale, useT } from "@/i18n/use-t";
+import { Flag } from "./flags";
 
-const languageMeta: Record<Locale, { flag: string; nameKey: string }> = {
-  en: { flag: "🇺🇸", nameKey: "language.enName" },
-  ru: { flag: "🇷🇺", nameKey: "language.ruName" },
-  uz: { flag: "🇺🇿", nameKey: "language.uzName" },
+const languageMeta: Record<Locale, { nameKey: string }> = {
+  en: { nameKey: "language.enName" },
+  ru: { nameKey: "language.ruName" },
+  uz: { nameKey: "language.uzName" },
 };
 
 export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
@@ -56,7 +57,7 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
         onClick={() => setOpen((value) => !value)}
       >
         <span className="flex min-w-0 items-center gap-2">
-          <span aria-hidden="true">{active.flag}</span>
+          <Flag locale={locale} />
           <span className="truncate">{compact ? t(`language.${locale}`) : t(active.nameKey)}</span>
         </span>
         <ChevronDown className={`h-4 w-4 text-muted-foreground transition duration-[var(--motion-fast)] ${open ? "rotate-180" : ""}`} />
@@ -81,7 +82,7 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
                 }}
               >
                 <span className="flex items-center gap-2">
-                  <span aria-hidden="true">{option.flag}</span>
+                  <Flag locale={item} />
                   <span>{t(option.nameKey)}</span>
                 </span>
                 {selected ? <Check className="h-4 w-4" aria-label={t("language.current")} /> : null}

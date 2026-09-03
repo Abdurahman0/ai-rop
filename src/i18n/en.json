@@ -171,7 +171,8 @@
       "inbound": "Inbound",
       "outbound": "Outbound",
       "unknown": "Unknown"
-    }
+    },
+    "myCalls": "The calls you handled."
   },
   "intelligence": {
     "reviewsTitle": "AI Reviews",
@@ -337,7 +338,9 @@
     "leadMoved": "Lead moved to {status}.",
     "moveLeadError": "The lead status could not be updated.",
     "dropHere": "Drop a lead here",
-    "dragHint": "Drag a card to change its status"
+    "dragHint": "Drag a card to change its status",
+    "readOnly": "Read-only for operators. Ask an administrator to change these.",
+    "myLeads": "The leads assigned to you."
   },
   "appearance": {
     "title": "Appearance",
@@ -494,11 +497,16 @@
     "fields": {
       "izoh": "Note",
       "manzil": "Address",
-      "muddat": "Date",
+      "muddat": "Deadline",
       "byudjet": "Budget",
       "budget": "Budget",
       "mahsulot": "Product",
-      "product": "Product"
+      "product": "Product",
+      "has_lead_intent": "Lead intent",
+      "client_name": "Client name",
+      "sana": "Date",
+      "narx": "Price",
+      "telefon": "Phone"
     }
   },
   "fields": {
@@ -582,5 +590,9 @@
       "rec3": "Keep opening and closing with a greeting",
       "illustrative": "Sample data"
     }
+  },
+  "roles": {
+    "admin": "Administrator",
+    "operator": "Operator"
   }
 }

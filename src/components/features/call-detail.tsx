@@ -11,6 +11,7 @@ import { useLabels } from "@/i18n/use-labels";
 import { demoAnalyses, demoCalls, demoTranscripts } from "@/lib/data/demo";
 import { objectId, parseSkipReason, speakerIndex } from "@/lib/utils/format";
 import { useApiItem } from "@/hooks/use-api-item";
+import { useCustomFields } from "@/components/ui/custom-fields";
 import { useApiResource } from "@/hooks/use-api-resource";
 import { CALL_DIRECTIONS, CALL_STAGES, SKIP_REASONS, type Analysis, type Call, type Transcript, type TranscriptSegment } from "@/types/domain";
 import { Badge, ScoreBadge, StatusBadge } from "@/components/ui/badge";
@@ -199,6 +200,17 @@ export function CallDetail({ id }: { id: string }) {
   const transcript = transcripts.data.find((item) => String(objectId(item.call)) === String(call?.id));
   const scoreValue = analysis?.overall_score === null || analysis?.overall_score === undefined ? null : Number(analysis.overall_score);
   const directionLabel = (CALL_DIRECTIONS as readonly string[]).includes(call?.direction ?? "") ? t(`calls.directions.${call?.direction}`) : call?.direction ?? t("common.unknown");
+  // The AI extracts into the company's own custom-field keys, so their labels
+  // are the right names to show — in whatever language they were defined.
+  const leadFields = useCustomFields("lead");
+  const clientFields = useCustomFields("client");
+  const fieldLabels = useMemo(() => {
+    const map: Record<string, string> = {};
+    [...leadFields.fields, ...clientFields.fields].forEach((field) => {
+      if (field.key && field.label) map[field.key] = field.label;
+    });
+    return map;
+  }, [clientFields.fields, leadFields.fields]);
   const skip = parseSkipReason(analysis?.skip_reason);
   const skipLabel = skip ? ((SKIP_REASONS as readonly string[]).includes(skip.code) ? t(`intelligence.skip.${skip.code}`) : skip.code) : "";
 
@@ -248,7 +260,6 @@ export function CallDetail({ id }: { id: string }) {
               <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.stage")}</span><StatusBadge value={call.stage} label={(CALL_STAGES as readonly string[]).includes(call.stage ?? "") ? t(`calls.stages.${call.stage}`) : undefined} /></div>
               {call.stage === "failed" && call.error ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">{call.error}</div> : null}
               <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.provider")}</span><span className="font-medium">{call.provider ?? t("common.notRecorded")}</span></div>
-              <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.aiModel")}</span><span className="text-right font-medium">{analysis?.model_name ?? t("common.notRecorded")}</span></div>
               <div className="flex justify-between gap-4 border-t border-border pt-3"><span className="text-muted-foreground">{t("callDetail.reviewTime")}</span><span className="text-right font-medium">{formatDate(analysis?.created_at)}</span></div>
               </div>
             </CardContent>
@@ -263,13 +274,13 @@ export function CallDetail({ id }: { id: string }) {
           <Card>
             <CardHeader title={t("callDetail.aiEvaluation")} />
             <CardContent>
-              <AiEvaluationPanel value={analysis?.evaluation} />
+              <AiEvaluationPanel value={analysis?.evaluation} labels={fieldLabels} />
             </CardContent>
           </Card>
           <Card>
             <CardHeader title={t("callDetail.extractedData")} />
             <CardContent>
-              <ExtractedFields value={analysis?.extracted_fields} />
+              <ExtractedFields value={analysis?.extracted_fields} labels={fieldLabels} />
             </CardContent>
           </Card>
           <TranscriptPanel call={call} analysis={analysis} transcript={transcript} loading={transcripts.loading} error={transcripts.error} onRetry={transcripts.reload} audio={audio} />

@@ -6,6 +6,7 @@ import { MouseEvent, useEffect, useState } from "react";
 import { LogOut, Menu, Moon, RefreshCw, ShieldAlert, Sun, X } from "lucide-react";
 import { useT } from "@/i18n/use-t";
 import { useAuthStore } from "@/stores/auth-store";
+import { useSessionStore } from "@/stores/session-store";
 import { palettes, useAppearanceStore } from "@/stores/appearance-store";
 import { useUiStore } from "@/stores/ui-store";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,8 @@ function Sidebar({ mobile = false }: { mobile?: boolean }) {
   const pathname = usePathname();
   const { setMobileNavOpen } = useUiStore();
   const t = useT();
+  const user = useSessionStore((state) => state.user);
+  const operator = user?.role === "operator";
   return (
     <aside className={`${mobile ? "flex w-full" : "fixed inset-y-0 left-0 z-40 hidden w-68 border-r border-border bg-sidebar lg:flex"} shrink-0 flex-col`}>
       <div className="flex h-16 items-center gap-3 border-b border-border px-5">
@@ -52,6 +55,17 @@ function Sidebar({ mobile = false }: { mobile?: boolean }) {
           </div>
         ))}
       </nav>
+      {user ? (
+        <div className="flex items-center gap-3 border-t border-border px-4 py-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold uppercase text-primary">
+            {(user.name || user.username || "?").slice(0, 2)}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">{user.name || user.username}</p>
+            <p className="text-xs text-muted-foreground">{t(operator ? "roles.operator" : "roles.admin")}</p>
+          </div>
+        </div>
+      ) : null}
     </aside>
   );
 }
@@ -87,12 +101,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const t = useT();
   const { accessToken, refreshToken, refresh, logout, forbidden } = useAuthStore();
+  const { user, load: loadUser, clear: clearUser } = useSessionStore();
   const { theme, radius, colorPalette, backgroundPalette, surfacePalette, sidebarPalette, motion, setTheme } = useAppearanceStore();
   const { mobileNavOpen, setMobileNavOpen } = useUiStore();
   const [mounted, setMounted] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loadingLine, setLoadingLine] = useState(false);
-  const [themeWave, setThemeWave] = useState<{ id: number; x: number; y: number } | null>(null);
+  const [themeWave, setThemeWave] = useState<{ id: number; x: number; y: number; r: number; color: string } | null>(null);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setMounted(true));
@@ -131,6 +146,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     router.replace("/login");
   }, [accessToken, mounted, pathname, refresh, refreshToken, router]);
 
+  // Who is signed in, and with which role — read once per session.
+  useEffect(() => {
+    if (!mounted || !accessToken || user) return;
+    void loadUser();
+  }, [accessToken, loadUser, mounted, user]);
+
   useEffect(() => {
     if (!mounted || pathname === "/login") return;
     const frame = window.requestAnimationFrame(() => setLoadingLine(true));
@@ -142,15 +163,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, [mounted, motion, pathname]);
 
   function cycleTheme(event: MouseEvent<HTMLButtonElement>) {
-    if (motion !== "reduced") {
-      const rect = event.currentTarget.getBoundingClientRect();
-      setThemeWave({ id: Date.now(), x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
-      window.setTimeout(() => setThemeWave(null), 720);
+    const next = theme === "dark" ? "light" : "dark";
+    if (motion === "reduced") {
+      setTheme(next);
+      return;
     }
-    setTheme(theme === "dark" ? "light" : "dark");
+    // A circle of the incoming background grows from the button until it covers
+    // the screen; the theme flips underneath it, then the circle fades away.
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+    const background = palettes[backgroundPalette];
+    setThemeWave({ id: Date.now(), x, y, r: radius, color: next === "dark" ? background.darkBackground : background.background });
+    window.setTimeout(() => setTheme(next), 300);
+    window.setTimeout(() => setThemeWave(null), 640);
   }
 
   function confirmLogout() {
+    clearUser();
     logout();
     setLogoutOpen(false);
     router.replace("/login");
@@ -182,7 +213,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       {loadingLine ? <div className="page-loading-line" /> : null}
-      {themeWave ? <div key={themeWave.id} className="theme-wave" style={{ left: themeWave.x, top: themeWave.y }} /> : null}
+      {themeWave ? (
+        <div
+          key={themeWave.id}
+          className="theme-wave"
+          style={{ left: themeWave.x, top: themeWave.y, width: themeWave.r * 2, height: themeWave.r * 2, background: themeWave.color }}
+        />
+      ) : null}
       <Sidebar />
       {mobileNavOpen ? (
         <div className="fixed inset-0 z-40 lg:hidden">

@@ -98,8 +98,12 @@ export type Lead = {
 };
 
 /** Company member. `name` falls back to the username when there is no full name. */
+export type UserRole = "admin" | "operator";
+
 export type User = {
   id: ID;
+  /** Defaults to admin server-side when unset. */
+  role?: UserRole | string;
   username?: string;
   name?: string;
   first_name?: string;

@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { ApiError, callsApi, clientsApi, fieldDefinitionsApi, leadsApi, leadStatusesApi, usersApi, type FieldErrors } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
@@ -14,6 +14,7 @@ import { useApiItem } from "@/hooks/use-api-item";
 import { useApiResource } from "@/hooks/use-api-resource";
 import { useDebounced } from "@/hooks/use-debounced";
 import { useAuthStore } from "@/stores/auth-store";
+import { useIsAdmin } from "@/stores/session-store";
 import { useUiStore } from "@/stores/ui-store";
 import type { Client, FieldDefinition, ID, Lead, LeadStatus, User } from "@/types/domain";
 import { Badge, StatusBadge } from "@/components/ui/badge";
@@ -110,6 +111,7 @@ export function LeadsPage() {
   const users = useApiResource(usersApi.list, []);
   // Fetched once for the page instead of once per modal instance.
   const leadFields = useCustomFields("lead");
+  const isAdmin = useIsAdmin();
   const { accessToken } = useAuthStore();
   const { toast } = useUiStore();
   const filtered = leads.data;
@@ -118,15 +120,15 @@ export function LeadsPage() {
     <>
       <PageHeader
         title={tab === "leads" ? t("resources.leadsTitle") : t("resources.statusesTitle")}
-        description={tab === "leads" ? t("resources.leadsDescription") : t("resources.statusesDescription")}
+        description={tab === "leads" ? (isAdmin ? t("resources.leadsDescription") : t("resources.myLeads")) : t("resources.statusesDescription")}
         actions={tab === "leads" ? (
           <>
             <Button onClick={() => setView(view === "table" ? "kanban" : "table")}>{view === "table" ? t("resources.kanbanView") : t("resources.tableView")}</Button>
             <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>{t("resources.createLead")}</Button>
           </>
-        ) : (
+        ) : isAdmin ? (
           <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setStatusModalOpen(true)}>{t("resources.createStatus")}</Button>
-        )}
+        ) : null}
       />
       <TabChips
         active={tab}
@@ -136,7 +138,7 @@ export function LeadsPage() {
           { key: "statuses", label: t("nav.leadStatuses"), count: statuses.count || undefined },
         ]}
       />
-      {tab === "statuses" ? <StatusesSection createOpen={statusModalOpen} onCreateOpenChange={setStatusModalOpen} /> : (
+      {tab === "statuses" ? <StatusesSection createOpen={statusModalOpen} onCreateOpenChange={setStatusModalOpen} canEdit={isAdmin} /> : (
       <>
       <Card>
         <div className="flex flex-wrap items-center gap-2 border-b border-border p-4"><SearchInput value={search} onChange={(event) => setSearch(event.target.value)} /><Select label={t("resources.status")} value={statusFilter} onChange={setStatusFilter} options={[{ label: t("common.all"), value: "" }, ...statuses.data.map((s) => ({ label: s.name ?? String(s.id), value: String(s.id) }))]} />{view === "kanban" ? <span className="text-xs text-muted-foreground">{t("resources.dragHint")}</span> : null}</div>
@@ -149,7 +151,7 @@ export function LeadsPage() {
               { header: t("resources.title"), cell: (row) => <span className="line-clamp-2 max-w-md">{row.title ?? t("resources.untitledLead")}</span> },
               { header: t("resources.client"), cell: (row) => <ClientLabel client={resolveRef(row.client, clients.data, row.client_detail)} id={objectId(row.client)} /> },
               { header: t("resources.status"), cell: (row) => { const status = resolveRef(row.status, statuses.data, row.status_detail); return <StatusBadge value={status?.name ?? `#${objectId(row.status) ?? ""}`} color={status?.color} />; } },
-              { header: t("resources.assigned"), cell: (row) => labels.person(row.assigned_to, row.assigned_to_detail) },
+              ...(isAdmin ? [{ header: t("resources.assigned"), cell: (row: Lead) => labels.person(row.assigned_to, row.assigned_to_detail) }] : []),
               { header: t("resources.createdVia"), cell: (row) => row.created_via?.toLowerCase().includes("ai") ? <Badge tone="ai">{labels.createdVia(row.created_via)}</Badge> : labels.createdVia(row.created_via ?? "manual") },
               { header: t("resources.created"), cell: (row) => formatDate(row.created_at) },
               { header: t("common.actions"), cell: (row) => <div className="flex items-center gap-1"><button className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={(event) => { event.stopPropagation(); setEditing(row); }} aria-label={t("resources.editLead")}><Pencil className="h-4 w-4" /></button><button className="rounded-md p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10" onClick={(event) => { event.stopPropagation(); setConfirm(row); }} aria-label={t("resources.deleteLead")}><Trash2 className="h-4 w-4" /></button></div> },
@@ -178,8 +180,8 @@ export function LeadsPage() {
       </Card>
       </>
       )}
-      <LeadModal open={open} schema={leadFields} clients={clients.data} statuses={statuses.data} users={users.data} onOpenChange={setOpen} onSave={async (payload) => { await leadsApi.create(payload, accessToken); toast({ title: t("resources.leadCreated"), tone: "success" }); await leads.reload(); }} />
-      <LeadModal open={!!editing} schema={leadFields} clients={clients.data} statuses={statuses.data} users={users.data} initial={editing ?? undefined} onOpenChange={(next) => !next && setEditing(null)} onSave={async (payload) => { if (!editing) return; await leadsApi.patch(editing.id, payload, accessToken); toast({ title: t("resources.leadUpdated"), tone: "success" }); await leads.reload(); setEditing(null); }} />
+      <LeadModal open={open} schema={leadFields} clients={clients.data} statuses={statuses.data} users={isAdmin ? users.data : []} onOpenChange={setOpen} onSave={async (payload) => { await leadsApi.create(payload, accessToken); toast({ title: t("resources.leadCreated"), tone: "success" }); await leads.reload(); }} />
+      <LeadModal open={!!editing} schema={leadFields} clients={clients.data} statuses={statuses.data} users={isAdmin ? users.data : []} initial={editing ?? undefined} onOpenChange={(next) => !next && setEditing(null)} onSave={async (payload) => { if (!editing) return; await leadsApi.patch(editing.id, payload, accessToken); toast({ title: t("resources.leadUpdated"), tone: "success" }); await leads.reload(); setEditing(null); }} />
       <ConfirmDialog open={!!confirm} onOpenChange={() => setConfirm(null)} title={t("resources.deleteLeadTitle")} description={t("resources.deleteLeadDescription")} confirmLabel={t("resources.deleteLead")} onConfirm={async () => { if (confirm) { await leadsApi.delete(confirm.id, accessToken); toast({ title: t("resources.leadDeleted"), tone: "success" }); await leads.reload(); } setConfirm(null); }} />
     </>
   );
@@ -216,6 +218,7 @@ function LeadKanban({ leads, statuses, clients, onOpen, onMove }: { leads: Lead[
       {statuses.map((status) => {
         const column = leads.filter((lead) => String(objectId(lead.status)) === String(status.id));
         const active = over === String(status.id) && !!dragging;
+        const holdsDragged = !!dragging && String(objectId(dragging.status)) === String(status.id);
         const accent = status.color;
         return (
           <div
@@ -243,40 +246,58 @@ function LeadKanban({ leads, statuses, clients, onOpen, onMove }: { leads: Lead[
               <span className="shrink-0 rounded-sm bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{column.length}</span>
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-0.5">
-              {column.map((lead) => (
-                <div
-                  key={lead.id}
-                  role="button"
-                  tabIndex={0}
-                  draggable
-                  onDragStart={(event) => {
-                    event.dataTransfer.effectAllowed = "move";
-                    setDragging(lead);
-                  }}
-                  onDragEnd={() => setDragging(null)}
-                  onClick={() => onOpen(lead.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      onOpen(lead.id);
-                    }
-                  }}
-                  className={`shrink-0 cursor-grab rounded-md border border-border bg-card p-3 text-left text-sm shadow-sm transition duration-[var(--motion-fast)] hover:border-primary/40 hover:bg-muted active:cursor-grabbing ${
-                    dragging?.id === lead.id ? "opacity-40" : ""
-                  } ${moving === String(lead.id) ? "opacity-50" : ""}`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="line-clamp-3 font-medium">{lead.title ?? t("resources.untitledLead")}</p>
-                    {lead.created_via?.toLowerCase().includes("ai") ? <Badge tone="ai">AI</Badge> : null}
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-1">
+              {column.map((lead) => {
+                const held = dragging?.id === lead.id;
+                const busy = moving === String(lead.id);
+                // Once the card is over another column, it leaves this one
+                // entirely: exactly one gap is on screen, never two.
+                if (held && over && over !== String(status.id)) return null;
+                return (
+                  <div
+                    key={lead.id}
+                    role="button"
+                    tabIndex={0}
+                    draggable={!busy}
+                    onDragStart={(event) => {
+                      event.dataTransfer.effectAllowed = "move";
+                      setDragging(lead);
+                    }}
+                    onDragEnd={() => setDragging(null)}
+                    onClick={() => !held && onOpen(lead.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onOpen(lead.id);
+                      }
+                    }}
+                    // While held, the card keeps its height but becomes a dashed
+                    // gap: one clear "it came from here" marker, no ghost card.
+                    className={`kanban-card shrink-0 rounded-md border p-3 text-left text-sm transition-[border-color,box-shadow,background-color,opacity] duration-[var(--motion-fast)] ${
+                      held
+                        ? "cursor-grabbing border-dashed border-primary/50 bg-primary/5"
+                        : `cursor-grab border-border bg-card shadow-sm hover:border-primary hover:shadow-md active:cursor-grabbing ${busy ? "pointer-events-none opacity-60" : ""}`
+                    }`}
+                    style={!held && status.color ? { boxShadow: `inset 3px 0 0 0 ${status.color}` } : undefined}
+                  >
+                    <div className={held ? "invisible" : undefined}>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="line-clamp-3 font-medium">{lead.title ?? t("resources.untitledLead")}</p>
+                        {lead.created_via?.toLowerCase().includes("ai") ? <Badge tone="ai">AI</Badge> : null}
+                      </div>
+                      <p className="mt-1 truncate text-muted-foreground"><ClientLabel client={resolveRef(lead.client, clients, lead.client_detail)} id={objectId(lead.client)} /></p>
+                      <p className="mt-2 flex items-center gap-2 truncate text-xs text-muted-foreground">
+                        {busy ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" /> : null}
+                        {labels.person(lead.assigned_to, lead.assigned_to_detail)} · {formatDate(lead.created_at)}
+                      </p>
+                    </div>
                   </div>
-                  <p className="mt-1 truncate text-muted-foreground"><ClientLabel client={resolveRef(lead.client, clients, lead.client_detail)} id={objectId(lead.client)} /></p>
-                  <p className="mt-2 truncate text-xs text-muted-foreground">{labels.person(lead.assigned_to, lead.assigned_to_detail)} · {formatDate(lead.created_at)}</p>
-                </div>
-              ))}
+                );
+              })}
 
-              {/* where the card will land */}
-              {active ? <div className="h-16 shrink-0 rounded-md border border-dashed border-primary/60 bg-primary/5" aria-hidden /> : null}
+              {/* Where it will land. Only for a different column: the source
+                  column already shows the gap the card left behind. */}
+              {active && !holdsDragged ? <div className="h-20 shrink-0 rounded-md border border-dashed border-primary/60 bg-primary/5" aria-hidden /> : null}
 
               {column.length === 0 && !active ? (
                 <p className="rounded-md border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">{t("resources.dropHere")}</p>
@@ -358,14 +379,16 @@ function LeadModal({ open, onOpenChange, onSave, initial, clients, statuses, use
           <Field label={t("resources.client")} error={errors.client}><Select label={t("resources.client")} value={clientId} onChange={setClientId} options={[{ label: t("common.select"), value: "" }, ...clients.map((client) => ({ label: client.name ?? client.phone ?? `#${client.id}`, value: String(client.id) }))]} /></Field>
           <Field label={t("resources.status")} error={errors.status}><Select label={t("resources.status")} value={statusId} onChange={setStatusId} options={[{ label: t("common.select"), value: "" }, ...statuses.map((status) => ({ label: status.name ?? status.code ?? `#${status.id}`, value: String(status.id) }))]} /></Field>
         </div>
-        <Field label={t("resources.assignedOperator")} error={errors.assigned_to}>
-          <Select
-            label={t("resources.assignedOperator")}
-            value={assignedTo}
-            onChange={setAssignedTo}
-            options={[{ label: t("common.unassigned"), value: "" }, ...users.map((user) => ({ label: user.name || user.username || `#${user.id}`, value: String(user.id) }))]}
-          />
-        </Field>
+        {users.length > 0 ? (
+          <Field label={t("resources.assignedOperator")} error={errors.assigned_to}>
+            <Select
+              label={t("resources.assignedOperator")}
+              value={assignedTo}
+              onChange={setAssignedTo}
+              options={[{ label: t("common.unassigned"), value: "" }, ...users.map((user) => ({ label: user.name || user.username || `#${user.id}`, value: String(user.id) }))]}
+            />
+          </Field>
+        ) : null}
         <div>
           <p className="text-sm font-medium">{t("fields.customFields")}</p>
           <p className="mb-3 text-xs text-muted-foreground">{t("fields.customFieldsHint")}</p>
@@ -390,12 +413,13 @@ export function ClientsPage() {
   const debouncedSearch = useDebounced(search);
   const clients = useApiResource(clientsApi.list, demoClients, { search: debouncedSearch || undefined });
   const clientFields = useCustomFields("client");
+  const isAdmin = useIsAdmin();
   const { accessToken } = useAuthStore();
   const { toast } = useUiStore();
   const filtered = clients.data;
   return (
     <>
-      <PageHeader title={t("resources.clientsTitle")} description={t("resources.clientsDescription")} actions={<Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>{t("resources.createClient")}</Button>} />
+      <PageHeader title={t("resources.clientsTitle")} description={t("resources.clientsDescription")} actions={isAdmin ? <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>{t("resources.createClient")}</Button> : null} />
       <Card>
         <div className="border-b border-border p-4"><SearchInput value={search} onChange={(event) => setSearch(event.target.value)} /></div>
         {clients.loading ? <TableSkeleton /> : clients.error ? <ErrorState title={t("resources.loadClientsError")} onRetry={clients.reload} /> : filtered.length === 0 ? <EmptyState title={t("resources.emptyClientsTitle")} description={t("resources.emptyClientsDescription")} /> : (
@@ -409,7 +433,7 @@ export function ClientsPage() {
               { header: t("resources.createdVia"), cell: (row) => labels.createdVia(row.created_via ?? "manual") },
               { header: t("resources.createdAt"), cell: (row) => formatDate(row.created_at) },
               { header: t("resources.updatedAt"), cell: (row) => formatDate(row.updated_at) },
-              { header: t("common.actions"), cell: (row) => <div className="flex items-center gap-1"><button className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={(event) => { event.stopPropagation(); setEditing(row); }} aria-label={t("resources.editClient")}><Pencil className="h-4 w-4" /></button><button className="rounded-md p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10" onClick={(event) => { event.stopPropagation(); setConfirm(row); }} aria-label={t("resources.deleteClient")}><Trash2 className="h-4 w-4" /></button></div> },
+              ...(isAdmin ? [{ header: t("common.actions"), cell: (row: Client) => <div className="flex items-center gap-1"><button className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={(event) => { event.stopPropagation(); setEditing(row); }} aria-label={t("resources.editClient")}><Pencil className="h-4 w-4" /></button><button className="rounded-md p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10" onClick={(event) => { event.stopPropagation(); setConfirm(row); }} aria-label={t("resources.deleteClient")}><Trash2 className="h-4 w-4" /></button></div> }] : []),
             ]}
           />
         )}
@@ -490,7 +514,7 @@ function ClientModal({ open, onOpenChange, onSave, initial, schema }: { open: bo
 
 /** The lead-statuses list. The parent owns the create dialog so the page header
  *  can carry the button for whichever tab is active. */
-function StatusesSection({ createOpen, onCreateOpenChange }: { createOpen: boolean; onCreateOpenChange: (open: boolean) => void }) {
+function StatusesSection({ createOpen, onCreateOpenChange, canEdit }: { createOpen: boolean; onCreateOpenChange: (open: boolean) => void; canEdit: boolean }) {
   const t = useT();
   const [editing, setEditing] = useState<LeadStatus | null>(null);
   const [confirm, setConfirm] = useState<LeadStatus | null>(null);
@@ -499,6 +523,7 @@ function StatusesSection({ createOpen, onCreateOpenChange }: { createOpen: boole
   const { toast } = useUiStore();
   return (
     <>
+      {!canEdit ? <p className="mb-3 rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">{t("resources.readOnly")}</p> : null}
       <Card>
         {statuses.loading ? <TableSkeleton /> : statuses.error ? <ErrorState title={t("resources.loadStatusesError")} description={statuses.error} onRetry={statuses.reload} /> : statuses.data.length === 0 ? <EmptyState title={t("resources.emptyStatusesTitle")} description={t("resources.emptyStatusesDescription")} /> : <DataTable
           data={statuses.data}
@@ -507,9 +532,9 @@ function StatusesSection({ createOpen, onCreateOpenChange }: { createOpen: boole
             { header: t("resources.name"), cell: (row) => <StatusBadge value={row.name} color={row.color} /> },
             { header: t("resources.code"), cell: (row) => row.code },
             { header: t("resources.order"), cell: (row) => row.order ?? "-" },
-            { header: t("resources.default"), cell: (row) => <Switch label={t("resources.defaultStatus")} checked={!!row.is_default} onCheckedChange={async (checked) => { await leadStatusesApi.patch(row.id, { is_default: checked }, accessToken); await statuses.reload(); }} /> },
-            { header: t("resources.final"), cell: (row) => <Switch label={t("resources.finalStatus")} checked={!!row.is_final} onCheckedChange={async (checked) => { await leadStatusesApi.patch(row.id, { is_final: checked }, accessToken); await statuses.reload(); }} /> },
-            { header: t("common.actions"), cell: (row) => <div className="flex items-center gap-1"><button className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setEditing(row)} aria-label={t("resources.editStatus")}><Pencil className="h-4 w-4" /></button><button className="rounded-md p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10" onClick={() => setConfirm(row)} aria-label={t("resources.deleteStatus")}><Trash2 className="h-4 w-4" /></button></div> },
+            { header: t("resources.default"), cell: (row) => <Switch label={t("resources.defaultStatus")} checked={!!row.is_default} disabled={!canEdit} onCheckedChange={async (checked) => { await leadStatusesApi.patch(row.id, { is_default: checked }, accessToken); await statuses.reload(); }} /> },
+            { header: t("resources.final"), cell: (row) => <Switch label={t("resources.finalStatus")} checked={!!row.is_final} disabled={!canEdit} onCheckedChange={async (checked) => { await leadStatusesApi.patch(row.id, { is_final: checked }, accessToken); await statuses.reload(); }} /> },
+            ...(canEdit ? [{ header: t("common.actions"), cell: (row: LeadStatus) => <div className="flex items-center gap-1"><button className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setEditing(row)} aria-label={t("resources.editStatus")}><Pencil className="h-4 w-4" /></button><button className="rounded-md p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10" onClick={() => setConfirm(row)} aria-label={t("resources.deleteStatus")}><Trash2 className="h-4 w-4" /></button></div> }] : []),
           ]}
         />}
         {!statuses.loading && !statuses.error && statuses.data.length > 0 ? <Pagination page={statuses.meta.page} count={statuses.count} pageSize={statuses.meta.pageSize} onPageChange={statuses.setPage} /> : null}
@@ -559,6 +584,7 @@ function StatusModal({ open, onOpenChange, onSave, initial }: { open: boolean; o
 export function FieldsSettingsPage() {
   const t = useT();
   const labels = useLabels();
+  const isAdmin = useIsAdmin();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FieldDefinition | null>(null);
   const [confirm, setConfirm] = useState<FieldDefinition | null>(null);
@@ -567,7 +593,8 @@ export function FieldsSettingsPage() {
   const { toast } = useUiStore();
   return (
     <>
-      <PageHeader title={t("resources.fieldsTitle")} description={t("resources.fieldsDescription")} actions={<Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>{t("resources.createField")}</Button>} />
+      <PageHeader title={t("resources.fieldsTitle")} description={t("resources.fieldsDescription")} actions={isAdmin ? <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>{t("resources.createField")}</Button> : null} />
+      {!isAdmin ? <p className="mb-3 rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">{t("resources.readOnly")}</p> : null}
       <Card>
         {fields.loading ? <TableSkeleton /> : fields.error ? <ErrorState title={t("resources.loadFieldsError")} description={fields.error} onRetry={fields.reload} /> : fields.data.length === 0 ? <EmptyState title={t("resources.emptyFieldsTitle")} description={t("resources.emptyFieldsDescription")} /> : <DataTable
           data={fields.data}
@@ -578,10 +605,10 @@ export function FieldsSettingsPage() {
             { header: t("resources.key"), cell: (row) => <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{row.key}</code> },
             { header: t("resources.type"), cell: (row) => labels.fieldType(row.field_type) },
             { header: t("resources.order"), cell: (row) => row.order ?? "-" },
-            { header: t("resources.required"), cell: (row) => <Switch label={t("resources.requiredField")} checked={!!row.is_required} onCheckedChange={async (checked) => { await fieldDefinitionsApi.patch(row.id, { is_required: checked }, accessToken); await fields.reload(); }} /> },
+            { header: t("resources.required"), cell: (row) => <Switch label={t("resources.requiredField")} checked={!!row.is_required} disabled={!isAdmin} onCheckedChange={async (checked) => { await fieldDefinitionsApi.patch(row.id, { is_required: checked }, accessToken); await fields.reload(); }} /> },
             { header: t("resources.active"), cell: (row) => row.is_active === false ? <Badge>{t("resources.inactive")}</Badge> : <Badge tone="success">{t("resources.active")}</Badge> },
             { header: t("resources.aiHint"), cell: (row) => <span className="text-muted-foreground">{row.ai_hint || t("common.none")}</span> },
-            { header: t("common.actions"), cell: (row) => <div className="flex items-center gap-1"><button className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setEditing(row)} aria-label={t("resources.editField")}><Pencil className="h-4 w-4" /></button><button className="rounded-md p-2 text-red-600 hover:bg-red-50 disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-red-500/10" disabled={row.is_active === false} onClick={() => setConfirm(row)} aria-label={t("resources.deleteField")}><Trash2 className="h-4 w-4" /></button></div> },
+            ...(isAdmin ? [{ header: t("common.actions"), cell: (row: FieldDefinition) => <div className="flex items-center gap-1"><button className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setEditing(row)} aria-label={t("resources.editField")}><Pencil className="h-4 w-4" /></button><button className="rounded-md p-2 text-red-600 hover:bg-red-50 disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-red-500/10" disabled={row.is_active === false} onClick={() => setConfirm(row)} aria-label={t("resources.deleteField")}><Trash2 className="h-4 w-4" /></button></div> }] : []),
           ]}
         />}
         {!fields.loading && !fields.error && fields.data.length > 0 ? <Pagination page={fields.meta.page} count={fields.count} pageSize={fields.meta.pageSize} onPageChange={fields.setPage} /> : null}

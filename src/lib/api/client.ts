@@ -174,7 +174,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   if (!response.ok) {
     const error = await toApiError(response);
-    if (error.status === 403) authBridge.onForbidden(error.friendlyMessage);
+    const reading = !options.method || options.method === "GET" || options.method === "HEAD";
+    if (error.status === 403 && reading) authBridge.onForbidden(error.friendlyMessage);
     throw error;
   }
   if (response.status === 204) return undefined as T;
@@ -265,7 +266,11 @@ export function callAudioPath(id: ID) {
 }
 
 /** Company members, for assignment dropdowns and resolving operator ids. */
-export const usersApi = readResource<User>("users");
+export const usersApi = {
+  ...readResource<User>("users"),
+  /** The signed-in user, including the role the whole UI is gated on. */
+  me: (token?: string | null) => apiRequest<User>("/api/users/me/", { token }),
+};
 
 export const clientsApi = writeResource<Client>("clients");
 export const leadsApi = writeResource<Lead>("leads");

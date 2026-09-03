@@ -40,7 +40,11 @@ function toneForScore(value: number, max: number) {
   return "danger";
 }
 
-function labelFor(scope: "aiEvaluation" | "specialFields", key: string, t: (key: string) => string) {
+function labelFor(scope: "aiEvaluation" | "specialFields", key: string, t: (key: string) => string, custom?: Record<string, string>) {
+  // 1. the company's own field definition label, 2. a translated AI key,
+  // 3. a humanized fallback so nothing ever renders as a raw snake_case key.
+  const fromSchema = custom?.[key];
+  if (fromSchema) return fromSchema;
   const translationKey = `${scope}.fields.${key}`;
   const translated = t(translationKey);
   return translated === translationKey ? humanizeKey(key) : translated;
@@ -87,7 +91,7 @@ function StructuredValue({ value }: { value: Record<string, unknown> }) {
   );
 }
 
-export function AiEvaluationPanel({ value }: { value: unknown }) {
+export function AiEvaluationPanel({ value, labels }: { value: unknown; labels?: Record<string, string> }) {
   const t = useT();
   if (!isPlainRecord(value) || Object.keys(value).length === 0) {
     return <EmptyState title={t("aiEvaluation.title")} description={t("callDetail.notExtracted")} />;
@@ -105,7 +109,7 @@ export function AiEvaluationPanel({ value }: { value: unknown }) {
           <div key={key} className="rounded-lg border border-border bg-background/70 p-4 transition duration-[var(--motion-fast)] hover:bg-muted/50">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold text-foreground">{labelFor("aiEvaluation", key, t)}</p>
+                <p className="text-sm font-semibold text-foreground">{labelFor("aiEvaluation", key, t, labels)}</p>
                 {boolean && !fieldValue ? <p className="mt-1 text-xs text-muted-foreground">{t("aiEvaluation.notIdentified")}</p> : null}
               </div>
               <div className="text-sm font-semibold text-foreground">
@@ -124,7 +128,7 @@ export function AiEvaluationPanel({ value }: { value: unknown }) {
   );
 }
 
-export function SpecialFieldsPanel({ value }: { value: unknown }) {
+export function SpecialFieldsPanel({ value, labels }: { value: unknown; labels?: Record<string, string> }) {
   const t = useT();
   const [open, setOpen] = useState(true);
   if (!isPlainRecord(value) || Object.keys(value).length === 0) {
@@ -156,7 +160,7 @@ export function SpecialFieldsPanel({ value }: { value: unknown }) {
               <div key={key} className={`rounded-lg border border-border bg-background/70 p-4 transition duration-[var(--motion-fast)] hover:bg-muted/50 ${fullWidth ? "md:col-span-2" : ""}`}>
                 <div className="mb-2 flex items-center gap-2">
                   <Icon className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{labelFor("specialFields", key, t)}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{labelFor("specialFields", key, t, labels)}</p>
                 </div>
                 <div className="whitespace-pre-wrap break-words text-sm leading-6 text-foreground">
                   <StructuredDataValue value={fieldValue} />
