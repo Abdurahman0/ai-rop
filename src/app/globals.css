@@ -182,16 +182,6 @@ html.motion-reduced .chart-dot {
   transform: none;
 }
 
-/* Score columns grow out of the baseline once the data is in. */
-.score-bar {
-  transform-origin: bottom;
-  animation: score-bar 520ms var(--motion-ease) both;
-}
-
-html.motion-reduced .score-bar {
-  animation: none;
-}
-
 /* Kanban cards fade up as they arrive in a column. */
 .kanban-card {
   animation: card-in 180ms var(--motion-ease) both;
@@ -564,11 +554,3 @@ html.motion-reduced .login-blink {
   }
 }
 
-@keyframes score-bar {
-  from {
-    transform: scaleY(0);
-  }
-  to {
-    transform: scaleY(1);
-  }
-}

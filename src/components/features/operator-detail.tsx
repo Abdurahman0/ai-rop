@@ -13,7 +13,7 @@ import type { ID, OperatorStatsDetail, TimelinePoint } from "@/types/domain";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DateRangeFilter, type DateRange } from "@/components/ui/date-picker";
-import { bandColor, CriteriaBars, DistributionBar, ScoreMeter, scoreBand } from "@/components/ui/score-meter";
+import { CriteriaBars, DistributionBar, ScoreMeter, scoreBand } from "@/components/ui/score-meter";
 import { DataTable } from "@/components/ui/table";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/states";
 import { PageHeader } from "@/components/shell/page-header";
@@ -27,10 +27,9 @@ function endOfDayISO(date: Date) {
 }
 
 /**
- * The operator's score per day. Columns, not a line: the days are discrete and
- * a short window (often a single day) has nothing to join up. Each bar is
- * coloured by its band and carries its number, so the status is never colour
- * alone.
+ * The operator's score over the window: a line with the area beneath it filled
+ * in a lighter step of the same hue. A single day still has a filled shape —
+ * the value holds across the plot — rather than one dot in empty space.
  */
 function ScoreTrend({ timeline }: { timeline: TimelinePoint[] }) {
   const t = useT();
@@ -43,76 +42,87 @@ function ScoreTrend({ timeline }: { timeline: TimelinePoint[] }) {
   const W = 640;
   const H = 190;
   const padLeft = 30;
-  const padRight = 14;
-  const padTop = 22;
+  const padRight = 16;
+  const padTop = 26;
   const padBottom = 30;
   const plotW = W - padLeft - padRight;
   const plotH = H - padTop - padBottom;
-  const slot = plotW / points.length;
-  // wide enough to read at one day, never so wide it looks like a block
-  const barW = Math.max(10, Math.min(56, slot - 10));
-  const x = (index: number) => padLeft + slot * index + slot / 2;
+  const baseline = padTop + plotH;
+  // one point has no span to draw across, so it holds its value the full width
+  const x = (index: number) => (points.length === 1 ? padLeft + plotW : padLeft + (index / (points.length - 1)) * plotW);
   const y = (value: number) => padTop + (1 - value / 100) * plotH;
+  const values = points.map((point) => Number(point.score));
+  const line =
+    points.length === 1
+      ? `M ${padLeft} ${y(values[0])} L ${padLeft + plotW} ${y(values[0])}`
+      : values.map((value, index) => `${index === 0 ? "M" : "L"} ${x(index)} ${y(value)}`).join(" ");
+  const area = `${line} L ${padLeft + plotW} ${baseline} L ${padLeft} ${baseline} Z`;
   const months = dictionaries[locale].calendar.months;
   const labelFor = (point: TimelinePoint) => {
     const day = new Date(`${point.date}T00:00:00`);
     return `${months[day.getMonth()].slice(0, 3)} ${day.getDate()}`;
   };
-  const tickEvery = Math.max(1, Math.ceil(points.length / 8));
+  const tickEvery = Math.max(1, Math.ceil(points.length / 7));
+
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} className="h-48 w-full" role="img" aria-label={t("users.score")} onMouseLeave={() => setActive(null)}>
+        <defs>
+          <linearGradient id="score-area" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="var(--series-calls)" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="var(--series-calls)" stopOpacity="0.02" />
+          </linearGradient>
+          <clipPath id="score-reveal">
+            <rect className="chart-wipe" x="0" y="0" width={W} height={H} />
+          </clipPath>
+        </defs>
+
         {[0, 50, 100].map((tick) => (
           <g key={tick}>
             <line x1={padLeft} x2={W - padRight} y1={y(tick)} y2={y(tick)} stroke="currentColor" className="text-border" strokeWidth="1" />
             <text x={padLeft - 7} y={y(tick) + 4} textAnchor="end" fontSize="10" className="fill-current text-muted-foreground">{tick}</text>
           </g>
         ))}
-        {/* where "good" starts, so a bar can be judged without the legend */}
-        <line x1={padLeft} x2={W - padRight} y1={y(85)} y2={y(85)} stroke="currentColor" className="text-emerald-500/40" strokeWidth="1" strokeDasharray="4 4" />
+        {/* where "strong" begins, so a value can be judged against the target */}
+        <line x1={padLeft} x2={W - padRight} y1={y(85)} y2={y(85)} stroke="var(--score-strong)" strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
+        {/* left-aligned: the right end is where the latest value label sits */}
+        <text x={padLeft + 4} y={y(85) - 5} textAnchor="start" fontSize="9" fill="var(--score-strong)" opacity="0.85">85</text>
+
+        <g clipPath="url(#score-reveal)">
+          <path className="chart-area" d={area} fill="url(#score-area)" />
+          <path d={line} fill="none" stroke="var(--series-calls)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        </g>
 
         {points.map((point, index) => {
-          const value = Number(point.score);
-          const band = scoreBand(value);
-          const height = Math.max(3, (value / 100) * plotH);
+          const value = values[index];
+          const cx = points.length === 1 ? padLeft + plotW / 2 : x(index);
           return (
             <g key={point.date} onMouseEnter={() => setActive(index)} onFocus={() => setActive(index)} tabIndex={0} aria-label={`${labelFor(point)}: ${Math.round(value)}`}>
-              <rect x={x(index) - slot / 2} y={padTop} width={slot} height={plotH} fill="transparent" />
-              <rect
-                className="score-bar"
-                x={x(index) - barW / 2}
-                y={y(value)}
-                width={barW}
-                height={height}
-                rx="4"
-                fill={bandColor[band]}
-                opacity={active === null || active === index ? 1 : 0.55}
-                style={{ animationDelay: `${Math.min(index * 60, 600)}ms` }}
-              />
-              <text x={x(index)} y={y(value) - 7} textAnchor="middle" fontSize="11" fontWeight="700" className="fill-current text-foreground">
-                {Math.round(value)}
-              </text>
+              <rect x={cx - plotW / Math.max(points.length, 2) / 2} y={padTop} width={plotW / Math.max(points.length, 2)} height={plotH} fill="transparent" />
+              <circle className="chart-dot" cx={cx} cy={y(value)} r={active === index ? 5 : 3.5} fill="var(--series-calls)" stroke="var(--card)" strokeWidth="2" />
+              {/* the latest value is labelled; the rest are on hover, never all at once */}
+              {index === points.length - 1 || active === index ? (
+                <text x={cx} y={y(value) - 11} textAnchor="middle" fontSize="11" fontWeight="700" className="fill-current text-foreground">
+                  {Math.round(value)}
+                </text>
+              ) : null}
               {index % tickEvery === 0 || index === points.length - 1 ? (
-                <text x={x(index)} y={H - 10} textAnchor="middle" fontSize="10" className="fill-current text-muted-foreground">{labelFor(point)}</text>
+                <text x={cx} y={H - 10} textAnchor="middle" fontSize="10" className="fill-current text-muted-foreground">{labelFor(point)}</text>
               ) : null}
             </g>
           );
         })}
       </svg>
 
-      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-        {(["strong", "attention", "critical"] as const).map((band) => (
-          <span key={band} className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full" style={{ background: bandColor[band] }} aria-hidden />
-            {t(`users.${band}`)}
-          </span>
-        ))}
+      <p className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+        <span className="h-2 w-2 rounded-full" style={{ background: "var(--series-calls)" }} aria-hidden />
+        {t("users.score")}
         {active !== null ? (
           <span className="ml-auto text-foreground">
             {labelFor(points[active])} · {points[active].calls ?? 0} {t("users.calls").toLowerCase()}
           </span>
         ) : null}
-      </div>
+      </p>
     </div>
   );
 }
