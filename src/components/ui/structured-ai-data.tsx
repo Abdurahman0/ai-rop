@@ -103,10 +103,18 @@ export function AiEvaluationPanel({ value, labels }: { value: unknown; labels?: 
         const max = evaluationScoreMax[key];
         const numeric = typeof fieldValue === "number" && Number.isFinite(fieldValue);
         const boolean = typeof fieldValue === "boolean";
+        // A written note is prose, not a value: give it the full width.
+        const note = typeof fieldValue === "string" && fieldValue.trim().length > 0;
         const tone = numeric && max ? toneForScore(fieldValue, max) : boolean && fieldValue ? "success" : boolean ? "warning" : "neutral";
         const barColor = tone === "success" ? "bg-emerald-500" : tone === "warning" ? "bg-amber-500" : tone === "danger" ? "bg-red-500" : "bg-primary";
         return (
           <div key={key} className="rounded-lg border border-border bg-background/70 p-4 transition duration-[var(--motion-fast)] hover:bg-muted/50">
+            {note ? (
+              <div>
+                <p className="text-sm font-semibold text-foreground">{labelFor("aiEvaluation", key, t, labels)}</p>
+                <p className="mt-1.5 leading-6 text-sm text-muted-foreground">{fieldValue}</p>
+              </div>
+            ) : (
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold text-foreground">{labelFor("aiEvaluation", key, t, labels)}</p>
@@ -116,6 +124,7 @@ export function AiEvaluationPanel({ value, labels }: { value: unknown; labels?: 
                 {numeric && max ? t("aiEvaluation.scoreOutOf", { value: fieldValue, max }) : numeric ? <StructuredDataValue value={fieldValue} /> : boolean ? t(fieldValue ? "common.yes" : "common.no") : <StructuredDataValue value={fieldValue} />}
               </div>
             </div>
+            )}
             {numeric && max ? (
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
                 <div className={`h-full rounded-full ${barColor} transition-[width] duration-[var(--motion-slow)]`} style={{ width: `${Math.max(0, Math.min(100, (fieldValue / max) * 100))}%` }} />
