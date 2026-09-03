@@ -171,6 +171,7 @@ function TeamSection({
                     <span onClick={(event) => event.stopPropagation()}>
                       <Select
                         label={t("users.role")}
+                        hideLabel
                         value={String(row.role ?? "admin")}
                         onChange={(role) => void patch(row, { role }, t("users.updated"))}
                         options={[

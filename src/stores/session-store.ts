@@ -32,8 +32,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   clear: () => set({ user: null, loading: false }),
 }));
 
-/** Unknown role means admin — that is the documented server-side default. */
+/**
+ * Admin-only controls stay hidden until we know who is signed in. The server
+ * defaults an unset role to admin, but showing admin actions to an operator for
+ * the moment before /users/me/ lands is worse than showing them a beat late.
+ */
 export function useIsAdmin() {
   const user = useSessionStore((state) => state.user);
-  return user?.role !== "operator";
+  if (!user) return false;
+  return user.role !== "operator";
 }

@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { dictionaries } from "@/i18n/dictionaries";
 import { useLocale, useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
 import { isSameDay, parseISODate, toISODate } from "@/lib/utils/format";
+import { useAnchoredPanel } from "@/hooks/use-anchored-panel";
 import { Button } from "./button";
 
 function startOfMonth(date: Date) {
@@ -191,54 +192,6 @@ function CalendarPanel({
       </div>
     </>
   );
-}
-
-/** Anchors a floating panel to a trigger, flipping up when space is short. */
-function useAnchoredPanel(open: boolean, close: () => void) {
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
-
-  const place = useCallback(() => {
-    const trigger = triggerRef.current;
-    if (!trigger) return;
-    const rect = trigger.getBoundingClientRect();
-    const width = 320;
-    const height = panelRef.current?.offsetHeight ?? 380;
-    const below = window.innerHeight - rect.bottom;
-    const top = below < height + 12 && rect.top > height + 12 ? rect.top - height - 8 : rect.bottom + 8;
-    const left = Math.min(Math.max(8, rect.left), window.innerWidth - width - 8);
-    setPosition({ top, left });
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!open) return;
-    place();
-  }, [open, place]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (triggerRef.current?.contains(target) || panelRef.current?.contains(target)) return;
-      close();
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
-    };
-    window.addEventListener("mousedown", onPointerDown);
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
-    return () => {
-      window.removeEventListener("mousedown", onPointerDown);
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
-    };
-  }, [close, open, place]);
-
-  return { triggerRef, panelRef, position };
 }
 
 function FloatingCalendar({

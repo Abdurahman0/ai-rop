@@ -49,7 +49,8 @@ function KpiCard({ label, value, icon: Icon, href, loading }: { label: string; v
         <p className="text-sm text-muted-foreground">{label}</p>
         <Icon className="h-4 w-4 text-indigo-500 transition duration-[var(--motion-fast)] group-hover:scale-110" />
       </div>
-      <p className="mt-4 text-3xl font-semibold tabular-nums">{loading ? <span className="text-muted-foreground">—</span> : value}</p>
+      {/* a skeleton, not an em dash: the dash sat taller than its line box */}
+      {loading ? <span className="mt-4 block h-8 w-16 animate-pulse rounded-md bg-muted" /> : <p className="mt-4 text-3xl font-semibold leading-none">{value}</p>}
     </Card>
   );
 
