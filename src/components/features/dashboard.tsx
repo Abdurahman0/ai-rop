@@ -199,6 +199,31 @@ function ActivityChart({ timeline }: { timeline: TimelinePoint[] }) {
 }
 
 /** Inclusive day bounds in ISO-8601, matching the calls filter. */
+/**
+ * The API emits only days that had activity, so a quiet week arrives as a single
+ * point and a line chart has nothing to draw. Counts are dense by nature — a day
+ * with no calls is a real zero — so the window is filled back in before plotting.
+ * (Scores are not filled this way: no calls is a gap, not a zero.)
+ */
+function fillTimeline(points: TimelinePoint[], range: DateRange | null): TimelinePoint[] {
+  const byDate = new Map(points.map((point) => [point.date, point]));
+  const last = points.length ? new Date(`${points[points.length - 1].date}T00:00:00`) : new Date();
+  const end = range ? new Date(range.to) : new Date(Math.max(last.getTime(), Date.now()));
+  const first = points.length ? new Date(`${points[0].date}T00:00:00`) : end;
+  const start = range ? new Date(range.from) : new Date(new Date(end).setDate(end.getDate() - 6));
+  // never let a wide window explode into hundreds of ticks
+  const from = start < first && !range ? start : range ? start : new Date(Math.min(start.getTime(), first.getTime()));
+  const span = Math.min(62, Math.max(1, Math.round((startOfDay(end).getTime() - startOfDay(from).getTime()) / 86400000) + 1));
+
+  return Array.from({ length: span }, (_, index) => {
+    const day = new Date(from);
+    day.setDate(from.getDate() + index);
+    const key = toISODate(day);
+    const found = byDate.get(key);
+    return { date: key, calls: found?.calls ?? 0, analyzed: found?.analyzed ?? 0, score: found?.score ?? null };
+  });
+}
+
 /** Fallback for roles that cannot read the aggregate: bucket what we do have. */
 function buildTimeline(calls: Call[], analyses: Analysis[], range: DateRange | null): TimelinePoint[] {
   const end = range ? new Date(range.to) : new Date();
@@ -306,7 +331,7 @@ export function Dashboard() {
             {!ready ? (
               <div className="h-56 animate-pulse rounded-md bg-muted/60" />
             ) : (
-              <ActivityChart timeline={overview.data?.timeline ?? localTimeline} />
+              <ActivityChart timeline={fillTimeline(overview.data?.timeline ?? localTimeline, range)} />
             )}
           </CardContent>
         </Card>
