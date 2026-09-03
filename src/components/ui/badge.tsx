@@ -12,7 +12,9 @@ const tones = {
 };
 
 export function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone?: keyof typeof tones }) {
-  return <span className={`inline-flex h-6 items-center rounded-md border px-2 text-xs font-medium ${tones[tone]}`}>{children}</span>;
+  // min-h + py instead of a fixed height: a long label (uz/ru run longer than
+  // en) grows the pill rather than spilling out of it.
+  return <span className={`inline-flex min-h-6 items-center whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-medium ${tones[tone]}`}>{children}</span>;
 }
 
 /** Pipeline stages reported by the backend, mapped onto a badge tone. */
@@ -31,12 +33,12 @@ export function StatusBadge({ value, color, title, label }: { value?: string; co
   const tone = stageTones[value?.toLowerCase() ?? ""] ?? "neutral";
   if (color) {
     return (
-      <span className="inline-flex h-6 items-center rounded-md border px-2 text-xs font-medium" title={title} style={{ borderColor: `${color}55`, backgroundColor: `${color}18`, color }}>
+      <span className="inline-flex min-h-6 items-center whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-medium" title={title} style={{ borderColor: `${color}55`, backgroundColor: `${color}18`, color }}>
         {label ?? value}
       </span>
     );
   }
-  return <span title={title}><Badge tone={tone}>{label ?? titleCase(value)}</Badge></span>;
+  return <span className="inline-flex" title={title}><Badge tone={tone}>{label ?? titleCase(value)}</Badge></span>;
 }
 
 export function ScoreBadge({ score }: { score?: number | string | null }) {

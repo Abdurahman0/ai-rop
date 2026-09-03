@@ -28,9 +28,9 @@ function Feature({ icon: Icon, title, text, tone }: { icon: typeof BarChart3; ti
   );
 }
 
-function Bubble({ name, time, text, align }: { name: string; time: string; text: string; align: "left" | "right" }) {
+function Bubble({ name, time, text, align, float }: { name: string; time: string; text: string; align: "left" | "right"; float: string }) {
   return (
-    <div className={`w-[19rem] max-w-full rounded-2xl border border-border bg-card p-3 shadow-lg shadow-black/5 ${align === "right" ? "ml-auto" : ""}`}>
+    <div className={`${float} w-[19rem] max-w-full rounded-2xl border border-border bg-card p-3 shadow-lg shadow-black/5 ${align === "right" ? "ml-auto" : ""}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ${align === "left" ? "bg-gradient-to-br from-rose-400 to-orange-400" : "bg-gradient-to-br from-primary to-violet-500"}`}>
@@ -52,7 +52,7 @@ export function LoginShowcase() {
 
   return (
     <div className="relative hidden w-full lg:block">
-      <div className="mb-8 grid gap-6 sm:grid-cols-3">
+      <div className="login-float-4 mb-8 grid gap-6 sm:grid-cols-3">
         <Feature icon={BarChart3} title={t("login.features.analysisTitle")} text={t("login.features.analysisText")} tone="bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300" />
         <Feature icon={Target} title={t("login.features.performanceTitle")} text={t("login.features.performanceText")} tone="bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300" />
         <Feature icon={Lightbulb} title={t("login.features.adviceTitle")} text={t("login.features.adviceText")} tone="bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300" />
@@ -61,10 +61,10 @@ export function LoginShowcase() {
       <div className="relative grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         {/* conversation + AI reading of it */}
         <div className="space-y-4">
-          <Bubble name={t("login.preview.client")} time="00:42" text={t("login.preview.clientLine")} align="left" />
-          <Bubble name={t("login.preview.operator")} time="00:47" text={t("login.preview.operatorLine")} align="right" />
+          <Bubble name={t("login.preview.client")} time="00:42" text={t("login.preview.clientLine")} align="left" float="login-float" />
+          <Bubble name={t("login.preview.operator")} time="00:47" text={t("login.preview.operatorLine")} align="right" float="login-float-2" />
 
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-lg shadow-black/5">
+          <div className="login-float-3 rounded-2xl border border-border bg-card p-4 shadow-lg shadow-black/5">
             <p className="mb-3 text-sm font-semibold text-foreground">{t("login.preview.analysisResults")}</p>
             <dl className="space-y-2.5 text-xs">
               <div className="flex items-center justify-between gap-3">
@@ -99,14 +99,14 @@ export function LoginShowcase() {
         <div className="relative space-y-4">
           {/* the AI sits in the gutter, between the conversation and the panel it produces */}
           <div className="pointer-events-none absolute left-0 top-[45%] z-10 hidden -translate-x-1/2 -translate-y-1/2 xl:block">
-            <div className="relative">
+            <div className="login-float relative">
               <div className="absolute -inset-5 rounded-full bg-primary/25 blur-2xl" />
               <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-violet-500 text-base font-semibold text-white shadow-xl shadow-primary/40 ring-4 ring-white/70 dark:ring-white/10">
                 AI
               </div>
             </div>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-[#171a2b] p-5 text-white shadow-2xl shadow-indigo-500/10">
+          <div className="login-float-2 rounded-2xl border border-white/10 bg-[#171a2b] p-5 text-white shadow-2xl shadow-indigo-500/10">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm font-semibold">{t("login.preview.panel")}</p>
               <span className="rounded-lg border border-white/15 px-2 py-1 text-[11px] text-white/60">{t("login.preview.range")}</span>
@@ -198,7 +198,7 @@ export function LoginShowcase() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-lg shadow-black/5">
+          <div className="login-float-4 rounded-2xl border border-border bg-card p-4 shadow-lg shadow-black/5">
             <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
               <Sparkles className="h-4 w-4" />
               {t("login.preview.recommendations")}

@@ -34,13 +34,13 @@ export function Select({
     <div className="relative" ref={ref}>
       <button
         type="button"
-        className="flex h-10 min-w-36 items-center justify-between gap-3 rounded-md border border-border bg-card px-3 text-sm text-foreground transition duration-[var(--motion-fast)] hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="flex h-10 min-w-36 max-w-full items-center justify-between gap-3 rounded-md border border-border bg-card px-3 text-sm text-foreground transition duration-[var(--motion-fast)] hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         onClick={() => setOpen((state) => !state)}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="text-muted-foreground">{label}:</span>
-        <span>{selected?.label ?? t("common.all")}</span>
+        <span className="shrink-0 whitespace-nowrap text-muted-foreground">{label}:</span>
+        <span className="truncate">{selected?.label ?? t("common.all")}</span>
         <ChevronDown className="h-4 w-4 text-muted-foreground" />
       </button>
       {open ? (
@@ -49,7 +49,7 @@ export function Select({
             <button
               key={option.value}
               type="button"
-              className={`flex w-full rounded-md px-3 py-2 text-left text-sm transition duration-[var(--motion-fast)] hover:bg-muted ${option.value === value ? "text-primary" : "text-foreground"}`}
+              className={`flex w-full break-words rounded-md px-3 py-2 text-left text-sm transition duration-[var(--motion-fast)] hover:bg-muted ${option.value === value ? "text-primary" : "text-foreground"}`}
               onClick={() => {
                 onChange(option.value);
                 setOpen(false);

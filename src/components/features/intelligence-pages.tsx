@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { analysesApi, callAudioPath, callsApi, transcriptsApi } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
+import { useAppearanceStore } from "@/stores/appearance-store";
 import { useFormatters } from "@/i18n/use-formatters";
 import { useLabels } from "@/i18n/use-labels";
 import { demoAnalyses, demoCalls, demoTranscripts } from "@/lib/data/demo";
@@ -119,6 +120,7 @@ export function TranscriptsPage() {
 
 export function TranscriptDetail({ id }: { id: string }) {
   const t = useT();
+  const motion = useAppearanceStore((state) => state.motion);
   const transcriptItem = useApiItem(transcriptsApi.get, id, demoTranscripts.find((item) => String(item.id) === id));
   const transcript = transcriptItem.data;
   const callId = objectId(transcript?.call);
@@ -133,8 +135,8 @@ export function TranscriptDetail({ id }: { id: string }) {
 
   useEffect(() => {
     if (!audio.playing || playingIndex < 0 || !followRef.current) return;
-    listRef.current?.querySelector<HTMLElement>(`[data-segment-index="${playingIndex}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [audio.playing, playingIndex]);
+    listRef.current?.querySelector<HTMLElement>(`[data-segment-index="${playingIndex}"]`)?.scrollIntoView({ block: "center", behavior: motion === "reduced" ? "auto" : "smooth" });
+  }, [audio.playing, motion, playingIndex]);
 
   if (transcriptItem.loading) return <TableSkeleton />;
   if (transcriptItem.error) return <ErrorState title={t("intelligence.loadTranscriptError")} description={transcriptItem.error} onRetry={transcriptItem.reload} />;

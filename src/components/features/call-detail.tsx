@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, Clock, Phone, Sparkles, UserRound } from "lucide-react";
 import { analysesApi, callAudioPath, callsApi, transcriptsApi } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
+import { useAppearanceStore } from "@/stores/appearance-store";
 import { useFormatters } from "@/i18n/use-formatters";
 import { useLabels } from "@/i18n/use-labels";
 import { demoAnalyses, demoCalls, demoTranscripts } from "@/lib/data/demo";
@@ -22,11 +23,11 @@ import { EmptyState, ErrorState } from "@/components/ui/states";
 
 function CallMeta({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
+    <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
       <span className="shrink-0 text-muted-foreground">{icon}</span>
-      <div className="min-w-0">
+      <div>
         <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
-        <div className="truncate text-sm font-medium text-foreground">{value}</div>
+        <div className="whitespace-nowrap text-sm font-medium text-foreground">{value}</div>
       </div>
     </div>
   );
@@ -99,6 +100,7 @@ function TranscriptPanel({
   const t = useT();
   const { formatDate, formatTime, formatDuration } = useFormatters();
   const labels = useLabels();
+  const motion = useAppearanceStore((state) => state.motion);
   const [activeSegment, setActiveSegment] = useState<string | null>(null);
   const segments = useMemo(() => (Array.isArray(transcript?.segments) ? (transcript.segments as TranscriptSegment[]) : []), [transcript]);
   const hasTranscriptText = !!transcript?.text;
@@ -111,8 +113,9 @@ function TranscriptPanel({
   useEffect(() => {
     if (!audio.playing || playingIndex < 0 || !followRef.current) return;
     const node = listRef.current?.querySelector<HTMLElement>(`[data-segment-index="${playingIndex}"]`);
-    node?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [audio.playing, playingIndex]);
+    // Honours the reduced-motion setting from Appearance.
+    node?.scrollIntoView({ block: "center", behavior: motion === "reduced" ? "auto" : "smooth" });
+  }, [audio.playing, motion, playingIndex]);
 
   return (
     <Card>
@@ -123,7 +126,7 @@ function TranscriptPanel({
             <h2 className="mt-1 text-lg font-semibold text-foreground">{t("dashboard.callNumber", { id: call.id })}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{labels.person(call.operator, call.operator_detail)} · {call.client_phone ?? t("transcript.client")}</p>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
+          <div className="flex flex-wrap gap-2 text-sm">
             <CallMeta icon={<Clock className="h-4 w-4" />} label={t("transcript.date")} value={formatDate(call.started_at)} />
             <CallMeta icon={<Clock className="h-4 w-4" />} label={t("transcript.time")} value={formatTime(call.started_at)} />
             <CallMeta icon={<Phone className="h-4 w-4" />} label={t("calls.duration")} value={formatDuration(call.duration || (audio.duration || null))} />
@@ -227,7 +230,7 @@ export function CallDetail({ id }: { id: string }) {
             <h1 className="mt-2 text-2xl font-semibold tracking-normal text-foreground">{t("dashboard.callNumber", { id: call.id })}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{call.client_phone ?? t("callDetail.unknownPhone")} · {labels.person(call.operator, call.operator_detail)}</p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex flex-wrap gap-2">
             <CallMeta icon={<Phone className="h-4 w-4" />} label={t("callDetail.client")} value={call.client_phone ?? t("common.notRecorded")} />
             <CallMeta icon={<UserRound className="h-4 w-4" />} label={t("callDetail.operator")} value={labels.person(call.operator, call.operator_detail)} />
             <CallMeta icon={<Clock className="h-4 w-4" />} label={t("calls.duration")} value={formatDuration(call.duration || (audio.duration || null))} />

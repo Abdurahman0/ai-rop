@@ -13,6 +13,7 @@
   --radius: 8px;
   --radius-sm: max(0px, calc(var(--radius) - 4px));
   --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 6px);
   --motion-fast: 140ms;
   --motion-normal: 180ms;
   --motion-slow: 260ms;
@@ -94,6 +95,11 @@ button:disabled,
   border-radius: var(--radius-lg);
 }
 
+.rounded-2xl,
+.rounded-3xl {
+  border-radius: var(--radius-xl);
+}
+
 .rounded-sm {
   border-radius: var(--radius-sm);
 }
@@ -157,6 +163,41 @@ html.dark .login-canvas {
 
 
 
+
+/* Gentle drift for the login preview cards. Negative delays stagger them
+   immediately so they never move in lockstep. */
+.login-float,
+.login-float-2,
+.login-float-3,
+.login-float-4 {
+  /* ease-in-out, not the app's snap curve: the drift should be continuous
+     rather than jumping to the peak and resting there. */
+  animation: login-float 8s ease-in-out infinite;
+  will-change: transform;
+}
+
+.login-float-2 {
+  animation-duration: 10s;
+  animation-delay: -2.5s;
+}
+
+.login-float-3 {
+  animation-duration: 12s;
+  animation-delay: -5s;
+}
+
+.login-float-4 {
+  animation-duration: 9s;
+  animation-delay: -1.2s;
+}
+
+/* Appearance -> reduced motion turns the drift off. */
+html.motion-reduced .login-float,
+html.motion-reduced .login-float-2,
+html.motion-reduced .login-float-3,
+html.motion-reduced .login-float-4 {
+  animation: none;
+}
 
 .login-rise {
   animation: login-rise var(--motion-slow) var(--motion-ease) both;
@@ -299,3 +340,12 @@ html.dark .login-canvas {
   }
 }
 
+@keyframes login-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
