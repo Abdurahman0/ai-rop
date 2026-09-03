@@ -137,48 +137,26 @@ html.dark .theme-wave {
   mix-blend-mode: screen;
 }
 
-.login-panel {
+.login-canvas {
   background:
-    radial-gradient(105% 75% at 8% -5%, #4338ca 0%, rgba(67, 56, 202, 0) 58%),
-    radial-gradient(95% 70% at 100% 105%, #6d28d9 0%, rgba(109, 40, 217, 0) 60%),
-    linear-gradient(160deg, #14122b 0%, #0b0b14 55%, #100e21 100%);
+    radial-gradient(70% 55% at 12% 8%, rgba(129, 140, 248, 0.16) 0%, transparent 60%),
+    radial-gradient(60% 50% at 88% 30%, rgba(168, 85, 247, 0.14) 0%, transparent 62%),
+    linear-gradient(180deg, #f7f7ff 0%, #eef0ff 45%, #f6f5fb 100%);
 }
 
-.login-panel-grid {
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.055) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
-  background-size: 52px 52px;
-  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 25% 15%, #000 10%, transparent 70%);
-  mask-image: radial-gradient(ellipse 80% 70% at 25% 15%, #000 10%, transparent 70%);
+html.dark .login-canvas {
+  background:
+    radial-gradient(70% 55% at 12% 8%, rgba(99, 102, 241, 0.18) 0%, transparent 60%),
+    radial-gradient(60% 50% at 88% 30%, rgba(168, 85, 247, 0.14) 0%, transparent 62%),
+    linear-gradient(180deg, #0b0b14 0%, #101226 50%, #0b0b14 100%);
 }
 
-.login-noise {
-  opacity: 0.35;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.32'/%3E%3C/svg%3E");
-}
 
-.login-float {
-  animation: login-float 11s var(--motion-ease) infinite;
-}
 
-.login-float-slow {
-  animation: login-float 15s var(--motion-ease) infinite;
-  animation-delay: -4s;
-}
 
-.login-aurora {
-  animation: login-aurora 18s ease-in-out infinite;
-}
 
-.login-aurora-slow {
-  animation: login-aurora 24s ease-in-out infinite reverse;
-}
 
-.login-pulse {
-  animation: login-pulse 2s ease-in-out infinite;
-}
+
 
 .login-rise {
   animation: login-rise var(--motion-slow) var(--motion-ease) both;
@@ -321,36 +299,3 @@ html.dark .theme-wave {
   }
 }
 
-@keyframes login-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-14px);
-  }
-}
-
-@keyframes login-aurora {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-    opacity: 0.85;
-  }
-  50% {
-    transform: translate3d(6%, 8%, 0) scale(1.12);
-    opacity: 1;
-  }
-}
-
-@keyframes login-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5);
-  }
-  70% {
-    opacity: 0.7;
-    box-shadow: 0 0 0 6px rgba(52, 211, 153, 0);
-  }
-}

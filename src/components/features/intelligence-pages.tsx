@@ -146,7 +146,7 @@ export function TranscriptDetail({ id }: { id: string }) {
       <Card>
         <CardHeader title={t("intelligence.fullTranscript")} />
         {audio.available || audio.error ? (
-          <div className="border-b border-border px-5 pb-4">
+          <div className="sticky top-16 z-20 border-b border-border bg-card/95 px-5 pb-4 pt-1 backdrop-blur">
             <AudioPlayer audio={audio} />
           </div>
         ) : null}

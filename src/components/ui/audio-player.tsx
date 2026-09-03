@@ -18,19 +18,19 @@ function formatClock(seconds: number) {
 }
 
 /**
- * Index of the segment covering `time`. Segments carry `start`/`end` in seconds;
- * when `end` is missing the next segment's `start` closes the gap.
+ * The line being spoken at `time`: the last one that has started. Real calls
+ * have silence between turns, so a segment stays highlighted through the gap
+ * until the next one begins rather than leaving nothing marked.
  */
 export function activeSegmentIndex(segments: TranscriptSegment[], time: number) {
+  let active = -1;
   for (let index = 0; index < segments.length; index += 1) {
     const start = segments[index].start;
     if (start === undefined) continue;
-    const explicitEnd = segments[index].end;
-    const nextStart = segments.slice(index + 1).find((segment) => segment.start !== undefined)?.start;
-    const end = explicitEnd ?? nextStart ?? Number.POSITIVE_INFINITY;
-    if (time >= start && time < end) return index;
+    if (start <= time) active = index;
+    else break;
   }
-  return -1;
+  return active;
 }
 
 /**

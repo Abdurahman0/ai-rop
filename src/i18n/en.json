@@ -536,5 +536,51 @@
     "noAudio": "No recording is attached to this call.",
     "followingAudio": "Transcript follows the recording",
     "hasRecording": "Recording available"
+  },
+  "login": {
+    "features": {
+      "analysisTitle": "AI analysis",
+      "analysisText": "Deep review of every conversation",
+      "performanceTitle": "Performance",
+      "performanceText": "Key indicators and ratings",
+      "adviceTitle": "Practical advice",
+      "adviceText": "Guidance to grow the team"
+    },
+    "preview": {
+      "panel": "Manager panel",
+      "range": "Last 7 days",
+      "overall": "Overall performance",
+      "good": "Good",
+      "conversations": "Conversations",
+      "vsLastWeek": "vs. last week",
+      "breakdown": "Performance breakdown",
+      "excellent": "Excellent",
+      "average": "Average",
+      "needsWork": "Needs work",
+      "topIndicators": "Top indicators",
+      "firstResponse": "First response time",
+      "resolved": "Resolved cases",
+      "satisfaction": "Client satisfaction",
+      "analysisResults": "AI analysis results",
+      "sentiment": "Sentiment",
+      "positive": "Positive",
+      "duration": "Duration",
+      "keywords": "Detected keywords",
+      "clientNeed": "Client need",
+      "operatorSkill": "Operator skill",
+      "client": "Client",
+      "operator": "Operator",
+      "clientLine": "When will my order be delivered?",
+      "operatorLine": "It ships today and arrives tomorrow.",
+      "keyword1": "delivery",
+      "keyword2": "order",
+      "keyword3": "deadline",
+      "needValue": "Delivery deadline",
+      "recommendations": "AI recommendations",
+      "rec1": "Confirm delivery details before promising a date",
+      "rec2": "Shorten the client waiting time",
+      "rec3": "Keep opening and closing with a greeting",
+      "illustrative": "Sample data"
+    }
   }
 }

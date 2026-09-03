@@ -536,5 +536,51 @@
     "noAudio": "Bu qo‘ng‘iroqqa yozuv biriktirilmagan.",
     "followingAudio": "Transkript yozuvga ergashadi",
     "hasRecording": "Yozuv mavjud"
+  },
+  "login": {
+    "features": {
+      "analysisTitle": "AI tahlil",
+      "analysisText": "Suhbatlarni chuqur tahlil qiladi",
+      "performanceTitle": "Samaradorlik",
+      "performanceText": "Asosiy ko‘rsatkichlar va reytinglar",
+      "adviceTitle": "Amaliy tavsiyalar",
+      "adviceText": "Jamoani rivojlantirish bo‘yicha tavsiyalar"
+    },
+    "preview": {
+      "panel": "Menejer paneli",
+      "range": "Oxirgi 7 kun",
+      "overall": "Umumiy samaradorlik",
+      "good": "Yaxshi",
+      "conversations": "Suhbatlar soni",
+      "vsLastWeek": "o‘tgan haftaga nisbatan",
+      "breakdown": "Samaradorlik taqsimoti",
+      "excellent": "A’lo",
+      "average": "O‘rtacha",
+      "needsWork": "Yaxshilash zarur",
+      "topIndicators": "Top ko‘rsatkichlar",
+      "firstResponse": "Birinchi javob vaqti",
+      "resolved": "Muammo yechim darajasi",
+      "satisfaction": "Mijoz qoniqish darajasi",
+      "analysisResults": "AI tahlil natijalari",
+      "sentiment": "Sentiment",
+      "positive": "Ijobiy",
+      "duration": "Suhbat davomiyligi",
+      "keywords": "Aniqlangan kalit so‘zlar",
+      "clientNeed": "Mijoz ehtiyoji",
+      "operatorSkill": "Operator ko‘nikmasi",
+      "client": "Mijoz",
+      "operator": "Operator",
+      "clientLine": "Salom, mening buyurtmam qachon yetkaziladi?",
+      "operatorLine": "Buyurtmangiz bugun yuboriladi, ertaga yetkazib beriladi.",
+      "keyword1": "yetkazib berish",
+      "keyword2": "buyurtma",
+      "keyword3": "muddat",
+      "needValue": "Yetkazib berish muddati",
+      "recommendations": "AI tavsiyalari",
+      "rec1": "Yetkazib berish haqida ma’lumot bering",
+      "rec2": "Mijoz kutish vaqtini qisqartirish mumkin",
+      "rec3": "Salomlashish va xayrlashishni davom ettiring",
+      "illustrative": "Namuna ma’lumot"
+    }
   }
 }

@@ -215,6 +215,11 @@ export function CallDetail({ id }: { id: string }) {
           <Badge tone={call.direction && call.direction !== "unknown" ? "ai" : "neutral"}>{directionLabel}</Badge>
         </div>
       </div>
+      {audio.available || audio.error ? (
+        <div className="sticky top-16 z-20 -mx-4 mb-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
+          <AudioPlayer audio={audio} />
+        </div>
+      ) : null}
       <section className="mb-4 rounded-lg border border-border bg-card p-5 shadow-sm">
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(36rem,1fr)] xl:items-end">
           <div>
@@ -229,8 +234,6 @@ export function CallDetail({ id }: { id: string }) {
             <CallMeta icon={<Sparkles className="h-4 w-4" />} label={t("calls.started")} value={formatDate(call.started_at)} />
           </div>
         </div>
-        {/* The recording is the first thing an operator wants: keep it above the fold. */}
-        {audio.available || audio.error ? <AudioPlayer audio={audio} className="mt-5" /> : null}
       </section>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem] xl:grid-cols-[minmax(0,1fr)_18rem]">
