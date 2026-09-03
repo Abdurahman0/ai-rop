@@ -13,7 +13,9 @@ import { useLabels } from "@/i18n/use-labels";
 import { demoAnalyses, demoCalls, demoClients, demoLeads, demoStatuses } from "@/lib/data/demo";
 import { objectId, relativeDayGreeting, resolveRef, scoreTone } from "@/lib/utils/format";
 import { useApiResource } from "@/hooks/use-api-resource";
+import { useCountUp } from "@/hooks/use-count-up";
 import { useIsAdmin, useSessionStore } from "@/stores/session-store";
+import { useAppearanceStore } from "@/stores/appearance-store";
 import { CALL_DIRECTIONS, CALL_STAGES, type Analysis, type Call, type Lead } from "@/types/domain";
 import { Badge, ScoreBadge, StatusBadge } from "@/components/ui/badge";
 import { AIScore } from "@/components/ui/ai-score";
@@ -33,6 +35,12 @@ function scoreNumber(score: Analysis["overall_score"]) {
   return Number.isFinite(value) ? value : null;
 }
 
+function KpiValue({ value, ready }: { value: number; ready: boolean }) {
+  const motion = useAppearanceStore((state) => state.motion);
+  const shown = useCountUp(value, ready, motion === "reduced");
+  return <>{shown}</>;
+}
+
 function KpiCard({ label, value, icon: Icon, href, loading }: { label: string; value: ReactNode; icon: LucideIcon; href?: string; loading: boolean }) {
   const content = (
     <Card className={`p-5 ${href ? "group hover:border-primary/40 hover:shadow-md" : ""}`}>
@@ -40,7 +48,7 @@ function KpiCard({ label, value, icon: Icon, href, loading }: { label: string; v
         <p className="text-sm text-muted-foreground">{label}</p>
         <Icon className="h-4 w-4 text-indigo-500 transition duration-[var(--motion-fast)] group-hover:scale-110" />
       </div>
-      <p className="mt-4 text-3xl font-semibold">{loading ? "..." : value}</p>
+      <p className="mt-4 text-3xl font-semibold tabular-nums">{loading ? <span className="text-muted-foreground">—</span> : value}</p>
     </Card>
   );
 
@@ -233,6 +241,8 @@ export function Dashboard() {
       return left - right;
     })
     .slice(0, 4);
+  // Nothing on this page animates until its data is actually here.
+  const ready = !calls.loading && !analyses.loading && !leads.loading;
   const scoreBuckets = [
     { label: t("dashboard.strongConversations"), count: scoredAnalyses.filter((score) => score >= 85).length, tone: "success" as const },
     { label: t("dashboard.needsAttention"), count: scoredAnalyses.filter((score) => score >= 70 && score < 85).length, tone: "warning" as const },
@@ -249,10 +259,10 @@ export function Dashboard() {
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: t("dashboard.totalCalls"), value: calls.error ? t("common.unavailable") : calls.count, icon: PhoneCall, href: "/calls" },
-          { label: t("dashboard.aiReviews"), value: analyses.error ? t("common.unavailable") : analyses.count, icon: Bot, href: "/ai-reviews" },
-          { label: t("dashboard.averageScore"), value: analyses.error || avgScore === null ? t("common.unavailable") : avgScore, icon: Sparkles },
-          { label: t("dashboard.newLeads"), value: leads.error ? t("common.unavailable") : leads.count, icon: ClipboardList, href: "/leads" },
+          { label: t("dashboard.totalCalls"), value: calls.error ? t("common.unavailable") : <KpiValue value={calls.count} ready={ready} />, icon: PhoneCall, href: "/calls" },
+          { label: t("dashboard.aiReviews"), value: analyses.error ? t("common.unavailable") : <KpiValue value={analyses.count} ready={ready} />, icon: Bot, href: "/ai-reviews" },
+          { label: t("dashboard.averageScore"), value: analyses.error || avgScore === null ? t("common.unavailable") : <KpiValue value={avgScore} ready={ready} />, icon: Sparkles },
+          { label: t("dashboard.newLeads"), value: leads.error ? t("common.unavailable") : <KpiValue value={leads.count} ready={ready} />, icon: ClipboardList, href: "/leads" },
         ].map((kpi) => {
           return <KpiCard key={kpi.label} {...kpi} loading={calls.loading || analyses.loading || leads.loading} />;
         })}
@@ -261,7 +271,7 @@ export function Dashboard() {
         <Card>
           <CardHeader title={t("dashboard.callActivity")} action={<span className="text-xs text-muted-foreground">{range ? t("calendar.rangeHint") : t("dashboard.sevenDays")}</span>} />
           <CardContent>
-            <ActivityChart calls={calls.data} analyses={analyses.data} range={range} />
+            {ready ? <ActivityChart calls={calls.data} analyses={analyses.data} range={range} /> : <div className="h-56 animate-pulse rounded-md bg-muted/60" />}
           </CardContent>
         </Card>
         <Card>
