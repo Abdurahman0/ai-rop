@@ -5,18 +5,19 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, Bot, ClipboardList, PhoneCall, Sparkles, type LucideIcon } from "lucide-react";
-import { analysesApi, callsApi, clientsApi, leadsApi, leadStatusesApi } from "@/lib/api/client";
+import { analysesApi, callsApi, clientsApi, leadsApi, leadStatusesApi, statsApi } from "@/lib/api/client";
 import { dictionaries } from "@/i18n/dictionaries";
 import { useLocale, useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
 import { useLabels } from "@/i18n/use-labels";
 import { demoAnalyses, demoCalls, demoClients, demoLeads, demoStatuses } from "@/lib/data/demo";
-import { objectId, relativeDayGreeting, resolveRef, scoreTone } from "@/lib/utils/format";
+import { objectId, relativeDayGreeting, resolveRef, scoreTone, toISODate } from "@/lib/utils/format";
 import { useApiResource } from "@/hooks/use-api-resource";
 import { useCountUp } from "@/hooks/use-count-up";
+import { useStats } from "@/hooks/use-stats";
 import { useIsAdmin, useSessionStore } from "@/stores/session-store";
 import { useAppearanceStore } from "@/stores/appearance-store";
-import { CALL_DIRECTIONS, CALL_STAGES, type Analysis, type Call, type Lead } from "@/types/domain";
+import { CALL_DIRECTIONS, CALL_STAGES, type Analysis, type Call, type Lead, type TimelinePoint } from "@/types/domain";
 import { Badge, ScoreBadge, StatusBadge } from "@/components/ui/badge";
 import { AIScore } from "@/components/ui/ai-score";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -70,34 +71,21 @@ function KpiCard({ label, value, icon: Icon, href, loading }: { label: string; v
  * contrast in both modes (light #4f46e5/#eb6834, dark #6366f1/#d95926).
  * Both are direct-labelled as well as legended, so identity is never colour alone.
  */
-function ActivityChart({ calls, analyses, range }: { calls: Call[]; analyses: Analysis[]; range: DateRange | null }) {
+/**
+ * Calls vs AI reviews over the selected window, from `GET /api/stats/overview/`.
+ * The server buckets by day, so the picture stays true past the 50-row page the
+ * browser used to count. Two series that must be told apart -> categorical:
+ * brand indigo + orange, validated for CVD separation and contrast in both modes.
+ */
+function ActivityChart({ timeline }: { timeline: TimelinePoint[] }) {
   const t = useT();
   const { locale } = useLocale();
   const [active, setActive] = useState<number | null>(null);
 
-  const days = useMemo(() => {
-    const end = range ? new Date(range.to) : new Date();
-    const start = range ? new Date(range.from) : new Date(new Date().setDate(end.getDate() - 6));
-    const span = Math.min(31, Math.max(1, Math.round((startOfDay(end).getTime() - startOfDay(start).getTime()) / 86400000) + 1));
-    return Array.from({ length: span }, (_, index) => {
-      const day = new Date(start);
-      day.setDate(start.getDate() + index);
-      return day;
-    });
-  }, [range]);
-
-  const series = useMemo(() => {
-    const callsPerDay = days.map((day) => calls.filter((call) => call.started_at && sameDay(new Date(call.started_at), day)).length);
-    const reviewsPerDay = days.map((day) =>
-      analyses.filter((analysis) => {
-        const call = calls.find((item) => item.id === objectId(analysis.call));
-        return call?.started_at && sameDay(new Date(call.started_at), day);
-      }).length,
-    );
-    return { callsPerDay, reviewsPerDay };
-  }, [analyses, calls, days]);
-
-  const max = Math.max(1, ...series.callsPerDay, ...series.reviewsPerDay);
+  const days = timeline;
+  const callsPerDay = days.map((point) => point.calls ?? 0);
+  const reviewsPerDay = days.map((point) => point.analyzed ?? 0);
+  const max = Math.max(1, ...callsPerDay, ...reviewsPerDay);
   const W = 720;
   const H = 220;
   const padX = 28;
@@ -108,16 +96,23 @@ function ActivityChart({ calls, analyses, range }: { calls: Call[]; analyses: An
   const line = (values: number[]) => values.map((value, index) => `${index === 0 ? "M" : "L"} ${x(index)} ${y(value)}`).join(" ");
   const area = (values: number[]) => `${line(values)} L ${x(values.length - 1)} ${H - padBottom} L ${x(0)} ${H - padBottom} Z`;
   const months = dictionaries[locale].calendar.months;
-  const labelFor = (day: Date) => `${months[day.getMonth()].slice(0, 3)} ${day.getDate()}`;
-  // enough ticks to read, never so many they collide
-  const tickEvery = Math.ceil(days.length / 7);
+  const labelFor = (point: TimelinePoint) => {
+    const day = new Date(`${point.date}T00:00:00`);
+    return `${months[day.getMonth()].slice(0, 3)} ${day.getDate()}`;
+  };
+  const tickEvery = Math.max(1, Math.ceil(days.length / 7));
+  const totals = { calls: callsPerDay.reduce((a, b) => a + b, 0), reviews: reviewsPerDay.reduce((a, b) => a + b, 0) };
+
+  if (days.length === 0) {
+    return <div className="flex h-56 items-center justify-center text-sm text-muted-foreground">{t("dashboard.noConversationsTitle")}</div>;
+  }
 
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-4 text-xs">
         {[
-          { label: t("dashboard.chartCalls"), className: "bg-[var(--series-calls)]", total: series.callsPerDay.reduce((a, b) => a + b, 0) },
-          { label: t("dashboard.chartAiReviews"), className: "bg-[var(--series-reviews)]", total: series.reviewsPerDay.reduce((a, b) => a + b, 0) },
+          { label: t("dashboard.chartCalls"), className: "bg-[var(--series-calls)]", total: totals.calls },
+          { label: t("dashboard.chartAiReviews"), className: "bg-[var(--series-reviews)]", total: totals.reviews },
         ].map((item) => (
           <span key={item.label} className="flex items-center gap-2 text-muted-foreground">
             <span className={`h-2 w-2 rounded-full ${item.className}`} aria-hidden />
@@ -131,13 +126,10 @@ function ActivityChart({ calls, analyses, range }: { calls: Call[]; analyses: An
         viewBox={`0 0 ${W} ${H}`}
         className="h-56 w-full"
         role="img"
-        aria-label={`${t("dashboard.callActivity")}: ${series.callsPerDay.reduce((a, b) => a + b, 0)} ${t("dashboard.chartCalls")}, ${series.reviewsPerDay.reduce((a, b) => a + b, 0)} ${t("dashboard.chartAiReviews")}`}
+        aria-label={`${t("dashboard.callActivity")}: ${totals.calls} ${t("dashboard.chartCalls")}, ${totals.reviews} ${t("dashboard.chartAiReviews")}`}
         onMouseLeave={() => setActive(null)}
       >
         <defs>
-          {/* Wipe left-to-right with a clip, not stroke-dasharray: dasharray is
-              what makes the AI-reviews line dashed, and animating it would
-              erase the only non-colour difference between the two series. */}
           <clipPath id="chart-reveal">
             <rect className="chart-wipe" x="0" y="0" width={W} height={H} />
           </clipPath>
@@ -157,31 +149,29 @@ function ActivityChart({ calls, analyses, range }: { calls: Call[]; analyses: An
         ))}
 
         <g clipPath="url(#chart-reveal)">
-          <path className="chart-area" d={area(series.callsPerDay)} fill="url(#calls-area)" />
-          <path d={line(series.callsPerDay)} fill="none" stroke="var(--series-calls)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          {/* dashed, and drawn on top, so an identical pair is still readable */}
-          <path d={line(series.reviewsPerDay)} fill="none" stroke="var(--series-reviews)" strokeWidth="2" strokeDasharray="6 6" strokeLinecap="round" strokeLinejoin="round" />
+          <path className="chart-area" d={area(callsPerDay)} fill="url(#calls-area)" />
+          <path d={line(callsPerDay)} fill="none" stroke="var(--series-calls)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d={line(reviewsPerDay)} fill="none" stroke="var(--series-reviews)" strokeWidth="2" strokeDasharray="6 6" strokeLinecap="round" strokeLinejoin="round" />
         </g>
 
-        {days.map((day, index) => (
-          <g key={day.toISOString()} onMouseEnter={() => setActive(index)} onFocus={() => setActive(index)} tabIndex={0} aria-label={`${labelFor(day)}: ${series.callsPerDay[index]} / ${series.reviewsPerDay[index]}`}>
+        {days.map((point, index) => (
+          <g key={point.date} onMouseEnter={() => setActive(index)} onFocus={() => setActive(index)} tabIndex={0} aria-label={`${labelFor(point)}: ${callsPerDay[index]} / ${reviewsPerDay[index]}`}>
             <rect x={x(index) - (W - padX * 2) / Math.max(1, days.length) / 2} y={padTop} width={(W - padX * 2) / Math.max(1, days.length)} height={H - padTop - padBottom} fill="transparent" />
             {active === index ? <line x1={x(index)} x2={x(index)} y1={padTop} y2={H - padBottom} stroke="currentColor" className="text-border" strokeWidth="1" /> : null}
             {index % tickEvery === 0 || index === days.length - 1 ? (
-              <text x={x(index)} y={H - 12} textAnchor="middle" fontSize="10" className="fill-current text-muted-foreground">{labelFor(day)}</text>
+              <text x={x(index)} y={H - 12} textAnchor="middle" fontSize="10" className="fill-current text-muted-foreground">{labelFor(point)}</text>
             ) : null}
-            <circle className="chart-dot" cx={x(index)} cy={y(series.callsPerDay[index])} r={active === index ? 5 : 3} fill="var(--series-calls)" stroke="var(--card)" strokeWidth="2" />
-            <circle className="chart-dot chart-dot-delayed" cx={x(index)} cy={y(series.reviewsPerDay[index])} r={active === index ? 5 : 3} fill="var(--series-reviews)" stroke="var(--card)" strokeWidth="2" />
+            <circle className="chart-dot" cx={x(index)} cy={y(callsPerDay[index])} r={active === index ? 5 : 3} fill="var(--series-calls)" stroke="var(--card)" strokeWidth="2" />
+            <circle className="chart-dot chart-dot-delayed" cx={x(index)} cy={y(reviewsPerDay[index])} r={active === index ? 5 : 3} fill="var(--series-reviews)" stroke="var(--card)" strokeWidth="2" />
           </g>
         ))}
 
-        {/* direct labels on the last point: identity without reading the legend */}
         {days.length > 1 ? (
           <>
-            <text x={x(days.length - 1)} y={y(series.callsPerDay[days.length - 1]) - 10} textAnchor="end" fontSize="10" fontWeight="600" fill="var(--series-calls)">
+            <text x={x(days.length - 1)} y={y(callsPerDay[days.length - 1]) - 10} textAnchor="end" fontSize="10" fontWeight="600" fill="var(--series-calls)">
               {t("dashboard.chartCalls")}
             </text>
-            <text x={x(days.length - 1)} y={y(series.reviewsPerDay[days.length - 1]) + 16} textAnchor="end" fontSize="10" fontWeight="600" fill="var(--series-reviews)">
+            <text x={x(days.length - 1)} y={y(reviewsPerDay[days.length - 1]) + 16} textAnchor="end" fontSize="10" fontWeight="600" fill="var(--series-reviews)">
               {t("dashboard.chartAiReviews")}
             </text>
           </>
@@ -189,17 +179,46 @@ function ActivityChart({ calls, analyses, range }: { calls: Call[]; analyses: An
 
         {active !== null ? (
           <g className="pointer-events-none animate-[tooltip-in_var(--motion-fast)_var(--motion-ease)]">
-            <rect x={Math.min(Math.max(x(active) - 70, 4), W - 144)} y={padTop + 4} width="140" height="62" rx="8" fill="var(--card)" stroke="var(--border)" />
+            <rect x={Math.min(Math.max(x(active) - 70, 4), W - 144)} y={padTop + 4} width="140" height="80" rx="8" fill="var(--card)" stroke="var(--border)" />
             <text x={Math.min(Math.max(x(active) - 70, 4), W - 144) + 10} y={padTop + 22} fontSize="11" fontWeight="700" className="fill-current text-foreground">{labelFor(days[active])}</text>
             <text x={Math.min(Math.max(x(active) - 70, 4), W - 144) + 10} y={padTop + 39} fontSize="11" className="fill-current text-muted-foreground">{t("dashboard.chartCalls")}</text>
-            <text x={Math.min(Math.max(x(active) - 70, 4), W - 144) + 130} y={padTop + 39} fontSize="11" fontWeight="700" textAnchor="end" className="fill-current text-foreground">{series.callsPerDay[active]}</text>
+            <text x={Math.min(Math.max(x(active) - 70, 4), W - 144) + 130} y={padTop + 39} fontSize="11" fontWeight="700" textAnchor="end" className="fill-current text-foreground">{callsPerDay[active]}</text>
             <text x={Math.min(Math.max(x(active) - 70, 4), W - 144) + 10} y={padTop + 56} fontSize="11" className="fill-current text-muted-foreground">{t("dashboard.chartAiReviews")}</text>
-            <text x={Math.min(Math.max(x(active) - 70, 4), W - 144) + 130} y={padTop + 56} fontSize="11" fontWeight="700" textAnchor="end" className="fill-current text-foreground">{series.reviewsPerDay[active]}</text>
+            <text x={Math.min(Math.max(x(active) - 70, 4), W - 144) + 130} y={padTop + 56} fontSize="11" fontWeight="700" textAnchor="end" className="fill-current text-foreground">{reviewsPerDay[active]}</text>
+            {days[active].score !== null && days[active].score !== undefined ? (
+              <>
+                <text x={Math.min(Math.max(x(active) - 70, 4), W - 144) + 10} y={padTop + 73} fontSize="11" className="fill-current text-muted-foreground">{t("dashboard.averageScore")}</text>
+                <text x={Math.min(Math.max(x(active) - 70, 4), W - 144) + 130} y={padTop + 73} fontSize="11" fontWeight="700" textAnchor="end" className="fill-current text-foreground">{Math.round(Number(days[active].score))}</text>
+              </>
+            ) : null}
           </g>
         ) : null}
       </svg>
     </div>
   );
+}
+
+/** Inclusive day bounds in ISO-8601, matching the calls filter. */
+/** Fallback for roles that cannot read the aggregate: bucket what we do have. */
+function buildTimeline(calls: Call[], analyses: Analysis[], range: DateRange | null): TimelinePoint[] {
+  const end = range ? new Date(range.to) : new Date();
+  const start = range ? new Date(range.from) : new Date(new Date().setDate(end.getDate() - 6));
+  const span = Math.min(31, Math.max(1, Math.round((startOfDay(end).getTime() - startOfDay(start).getTime()) / 86400000) + 1));
+  return Array.from({ length: span }, (_, index) => {
+    const day = new Date(start);
+    day.setDate(start.getDate() + index);
+    const dayCalls = calls.filter((call) => call.started_at && sameDay(new Date(call.started_at), day));
+    const analyzed = analyses.filter((analysis) => dayCalls.some((call) => call.id === objectId(analysis.call))).length;
+    return { date: toISODate(day), calls: dayCalls.length, analyzed };
+  });
+}
+
+function startOfDayISO(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0).toISOString();
+}
+
+function endOfDayISO(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59).toISOString();
 }
 
 function sameDay(a: Date, b: Date) {
@@ -226,7 +245,7 @@ export function Dashboard() {
   const statuses = useApiResource(leadStatusesApi.list, demoStatuses);
   const clients = useApiResource(clientsApi.list, demoClients);
   const scoredAnalyses = analyses.data.map((item) => scoreNumber(item.overall_score)).filter((score): score is number => score !== null);
-  const avgScore = scoredAnalyses.length ? Math.round(scoredAnalyses.reduce((sum, score) => sum + score, 0) / scoredAnalyses.length) : null;
+  const avgScore = scoredAnalyses.length ? Math.round(scoredAnalyses.reduce((sum, value) => sum + value, 0) / scoredAnalyses.length) : null;
   const latestCalls = calls.data.slice(0, 5);
   // The backend does not produce overall_score yet: unscored reviews are ranked
   // after scored ones instead of being treated as a zero.
@@ -241,8 +260,21 @@ export function Dashboard() {
       return left - right;
     })
     .slice(0, 4);
-  // Nothing on this page animates until its data is actually here.
-  const ready = !calls.loading && !analyses.loading && !leads.loading;
+  // One server-side aggregate drives the KPIs and the chart, so the numbers are
+  // company-wide rather than whatever happened to be on page one.
+  const statsQuery = useMemo(
+    () => ({
+      started_after: range ? startOfDayISO(range.from) : undefined,
+      started_before: range ? endOfDayISO(range.to) : undefined,
+    }),
+    [range],
+  );
+  const overview = useStats(statsApi.overview, statsQuery);
+  // Operators may not read company-wide aggregates: fall back to their own rows.
+  const score = overview.data?.overall_score ?? avgScore;
+  const localTimeline = useMemo(() => buildTimeline(calls.data, analyses.data, range), [analyses.data, calls.data, range]);
+
+  const ready = !overview.loading && !calls.loading && !analyses.loading && !leads.loading;
   const scoreBuckets = [
     { label: t("dashboard.strongConversations"), count: scoredAnalyses.filter((score) => score >= 85).length, tone: "success" as const },
     { label: t("dashboard.needsAttention"), count: scoredAnalyses.filter((score) => score >= 70 && score < 85).length, tone: "warning" as const },
@@ -259,10 +291,10 @@ export function Dashboard() {
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: t("dashboard.totalCalls"), value: calls.error ? t("common.unavailable") : <KpiValue value={calls.count} ready={ready} />, icon: PhoneCall, href: "/calls" },
-          { label: t("dashboard.aiReviews"), value: analyses.error ? t("common.unavailable") : <KpiValue value={analyses.count} ready={ready} />, icon: Bot, href: "/ai-reviews" },
-          { label: t("dashboard.averageScore"), value: analyses.error || avgScore === null ? t("common.unavailable") : <KpiValue value={avgScore} ready={ready} />, icon: Sparkles },
-          { label: t("dashboard.newLeads"), value: leads.error ? t("common.unavailable") : <KpiValue value={leads.count} ready={ready} />, icon: ClipboardList, href: "/leads" },
+          { label: t("dashboard.totalCalls"), value: calls.error ? t("common.unavailable") : <KpiValue value={overview.data?.calls ?? calls.count} ready={ready} />, icon: PhoneCall, href: "/calls" },
+          { label: t("dashboard.aiReviews"), value: analyses.error ? t("common.unavailable") : <KpiValue value={overview.data?.analyzed ?? analyses.count} ready={ready} />, icon: Bot, href: "/ai-reviews" },
+          { label: t("dashboard.averageScore"), value: score === null ? t("common.unavailable") : <KpiValue value={Math.round(score)} ready={ready} />, icon: Sparkles },
+          { label: t("dashboard.newLeads"), value: leads.error ? t("common.unavailable") : <KpiValue value={overview.data?.leads ?? leads.count} ready={ready} />, icon: ClipboardList, href: "/leads" },
         ].map((kpi) => {
           return <KpiCard key={kpi.label} {...kpi} loading={calls.loading || analyses.loading || leads.loading} />;
         })}
@@ -271,7 +303,11 @@ export function Dashboard() {
         <Card>
           <CardHeader title={t("dashboard.callActivity")} action={<span className="text-xs text-muted-foreground">{range ? t("calendar.rangeHint") : t("dashboard.sevenDays")}</span>} />
           <CardContent>
-            {ready ? <ActivityChart calls={calls.data} analyses={analyses.data} range={range} /> : <div className="h-56 animate-pulse rounded-md bg-muted/60" />}
+            {!ready ? (
+              <div className="h-56 animate-pulse rounded-md bg-muted/60" />
+            ) : (
+              <ActivityChart timeline={overview.data?.timeline ?? localTimeline} />
+            )}
           </CardContent>
         </Card>
         <Card>

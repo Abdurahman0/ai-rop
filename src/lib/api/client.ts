@@ -3,11 +3,15 @@ import type {
   ApiList,
   Call,
   Client,
+  Company,
   FieldDefinition,
   ID,
   Lead,
   LeadStatus,
   ResourceName,
+  OperatorStatsDetail,
+  OperatorStatsList,
+  StatsOverview,
   Transcript,
   User,
 } from "@/types/domain";
@@ -50,6 +54,11 @@ type RequestOptions = Omit<RequestInit, "body"> & {
   query?: Record<string, string | number | boolean | undefined | null>;
   /** Skips the Authorization header and the refresh-on-401 retry (auth endpoints). */
   skipAuth?: boolean;
+  /**
+   * A 403 here is an expected permission boundary (an operator reading team-wide
+   * stats), not a company-less account — don't raise the blocking screen.
+   */
+  quiet403?: boolean;
 };
 
 function urlFor(path: string, query?: RequestOptions["query"]) {
@@ -175,7 +184,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (!response.ok) {
     const error = await toApiError(response);
     const reading = !options.method || options.method === "GET" || options.method === "HEAD";
-    if (error.status === 403 && reading) authBridge.onForbidden(error.friendlyMessage);
+    if (error.status === 403 && reading && !options.quiet403) authBridge.onForbidden(error.friendlyMessage);
     throw error;
   }
   if (response.status === 204) return undefined as T;
@@ -265,11 +274,25 @@ export function callAudioPath(id: ID) {
   return `/api/calls/${id}/audio/`;
 }
 
-/** Company members, for assignment dropdowns and resolving operator ids. */
+/** Company members: readable by everyone, writable by admins and superadmins. */
 export const usersApi = {
-  ...readResource<User>("users"),
+  ...writeResource<User>("users"),
   /** The signed-in user, including the role the whole UI is gated on. */
   me: (token?: string | null) => apiRequest<User>("/api/users/me/", { token }),
+};
+
+export const companiesApi = readResource<Company>("companies");
+
+type StatsQuery = RequestOptions["query"];
+
+/**
+ * Server-side aggregates. Operators may read their own operator detail only,
+ * so every call here is marked quiet403.
+ */
+export const statsApi = {
+  overview: (query?: StatsQuery) => apiRequest<StatsOverview>("/api/stats/overview/", { query, quiet403: true }),
+  operators: (query?: StatsQuery) => apiRequest<OperatorStatsList>("/api/stats/operators/", { query, quiet403: true }),
+  operator: (id: ID, query?: StatsQuery) => apiRequest<OperatorStatsDetail>(`/api/stats/operators/${id}/`, { query, quiet403: true }),
 };
 
 export const clientsApi = writeResource<Client>("clients");

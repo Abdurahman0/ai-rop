@@ -98,12 +98,22 @@ export type Lead = {
 };
 
 /** Company member. `name` falls back to the username when there is no full name. */
-export type UserRole = "admin" | "operator";
+export type UserRole = "admin" | "operator" | "superadmin";
+
+export type Company = {
+  id: ID;
+  name?: string;
+  slug?: string;
+  is_active?: boolean;
+  created_at?: string;
+};
 
 export type User = {
   id: ID;
   /** Defaults to admin server-side when unset. */
   role?: UserRole | string;
+  is_active?: boolean;
+  company?: Company | null;
   username?: string;
   name?: string;
   first_name?: string;
@@ -136,8 +146,67 @@ export type FieldDefinition = {
   created_at?: string;
 };
 
+/** Counts of calls per score band, using the 85 / 70 cuts the UI draws. */
+export type ScoreDistribution = { strong: number; attention: number; critical: number };
+
+/** Mean per evaluation criterion. 0-5 scales, or a 0-1 rate for booleans. */
+export type OperatorCriteria = Record<string, number>;
+
+export type OperatorStats = {
+  operator: User;
+  calls: number;
+  analyzed: number;
+  overall_score: number | null;
+  criteria?: OperatorCriteria;
+  talk_time_seconds?: number;
+  avg_call_seconds?: number;
+  leads_created?: number;
+  conversion_rate?: number;
+  score_distribution?: ScoreDistribution;
+  /** Change against the previous period of equal length; null when unknown. */
+  score_trend?: number | null;
+};
+
+export type StatsPeriod = { from: string | null; to: string | null };
+
+export type OperatorStatsList = { period?: StatsPeriod; results?: OperatorStats[] };
+
+export type TimelinePoint = { date: string; calls?: number; analyzed?: number; score?: number | null };
+
+export type OperatorClientStat = {
+  client: { id: ID; name?: string; phone?: string };
+  calls: number;
+  overall_score: number | null;
+  last_call_at?: string;
+  worst_call?: { id: ID; score: number | null } | null;
+};
+
+export type OperatorScoredCall = {
+  id: ID;
+  started_at?: string;
+  duration_seconds?: number | null;
+  client?: { id: ID; name?: string; phone?: string };
+  overall_score: number | null;
+  summary?: string;
+};
+
+export type OperatorStatsDetail = OperatorStats & {
+  timeline?: TimelinePoint[];
+  by_client?: OperatorClientStat[];
+  recent_calls?: OperatorScoredCall[];
+};
+
+export type StatsOverview = {
+  calls: number;
+  analyzed: number;
+  leads: number;
+  overall_score: number | null;
+  timeline?: TimelinePoint[];
+};
+
 export type ResourceName =
   | "analyses"
+  | "companies"
   | "users"
   | "calls"
   | "clients"
