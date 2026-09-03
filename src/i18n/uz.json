@@ -656,6 +656,10 @@
     "critical": "Kritik",
     "notFound": "Operator topilmadi",
     "notFoundDescription": "Bu foydalanuvchida statistika yo‘q yoki sizga ko‘rinmaydi.",
-    "performanceDescription": "Har bir operatorning suhbatlar bo‘yicha ko‘rsatkichlari."
+    "performanceDescription": "Har bir operatorning suhbatlar bo‘yicha ko‘rsatkichlari.",
+    "callsContext": "{calls} tadan {analyzed} tasi tahlil qilindi",
+    "reviewsContext": "qo‘ng‘iroqlarining {percent}%",
+    "talkContext": "jami {total}",
+    "conversionContext": "{calls} qo‘ng‘iroqdan {leads} lid"
   }
 }

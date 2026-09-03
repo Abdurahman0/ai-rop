@@ -117,14 +117,53 @@ function ScoreTrend({ timeline }: { timeline: TimelinePoint[] }) {
   );
 }
 
-function Metric({ icon: Icon, label, value }: { icon: typeof PhoneCall; label: string; value: React.ReactNode }) {
+/**
+ * A stat tile: label, one value, and a second dimension underneath — a meter of
+ * the ratio it belongs to, or a line of context. Proportional figures, not
+ * tabular: at this size tabular digits read loose. The page's hero number is the
+ * score, so these stay a step smaller.
+ */
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  unit,
+  ratio,
+  context,
+}: {
+  icon: typeof PhoneCall;
+  label: string;
+  value: React.ReactNode;
+  unit?: string;
+  ratio?: number | null;
+  context?: string;
+}) {
   return (
-    <div className="rounded-lg border border-border bg-background/60 p-4">
-      <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" />
-        {label}
+    <div className="group rounded-lg border border-border bg-card p-4 transition duration-[var(--motion-fast)] hover:border-primary/40 hover:shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition duration-[var(--motion-fast)] group-hover:bg-primary/15">
+          <Icon className="h-4 w-4" />
+        </span>
+      </div>
+
+      <p className="mt-3 flex items-baseline gap-1 text-2xl font-semibold leading-none text-foreground">
+        {value}
+        {unit ? <span className="text-sm font-medium text-muted-foreground">{unit}</span> : null}
       </p>
-      <p className="mt-2 text-xl font-semibold tabular-nums text-foreground">{value}</p>
+
+      {ratio !== null && ratio !== undefined ? (
+        // the unfilled track is a lighter step of the same hue, so the state
+        // reads across the whole bar
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-primary/15">
+          <div
+            className="h-full rounded-full bg-primary transition-[width] duration-[var(--motion-slow)] ease-[var(--motion-ease)]"
+            style={{ width: `${Math.max(0, Math.min(100, ratio * 100))}%` }}
+          />
+        </div>
+      ) : null}
+
+      {context ? <p className={`text-xs text-muted-foreground ${ratio === null || ratio === undefined ? "mt-3" : "mt-2"}`}>{context}</p> : null}
     </div>
   );
 }
@@ -154,7 +193,8 @@ export function OperatorDetail({ id }: { id: string }) {
   // The detail response carries no talk-time fields, so the average comes from
   // the scored calls it does list — null when there is nothing to average.
   const durations = (data.recent_calls ?? []).map((call) => call.duration_seconds).filter((value): value is number => typeof value === "number" && value > 0);
-  const avgCallSeconds = durations.length ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length) : null;
+  const totalTalkSeconds = durations.reduce((sum, value) => sum + value, 0);
+  const avgCallSeconds = durations.length ? Math.round(totalTalkSeconds / durations.length) : null;
 
   return (
     <>
@@ -197,11 +237,35 @@ export function OperatorDetail({ id }: { id: string }) {
           </div>
         </Card>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric icon={PhoneCall} label={t("users.calls")} value={data.calls ?? 0} />
-          <Metric icon={Sparkles} label={t("intelligence.reviewsTitle")} value={data.analyzed ?? 0} />
-          <Metric icon={Timer} label={t("users.avgCall")} value={formatDuration(avgCallSeconds)} />
-          <Metric icon={Target} label={t("users.conversion")} value={data.conversion_rate === undefined ? "—" : `${Math.round(data.conversion_rate * 100)}%`} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <StatTile
+            icon={PhoneCall}
+            label={t("users.calls")}
+            value={data.calls ?? 0}
+            ratio={data.calls ? (data.analyzed ?? 0) / data.calls : null}
+            context={t("users.callsContext", { analyzed: data.analyzed ?? 0, calls: data.calls ?? 0 })}
+          />
+          <StatTile
+            icon={Sparkles}
+            label={t("intelligence.reviewsTitle")}
+            value={data.analyzed ?? 0}
+            ratio={data.calls ? (data.analyzed ?? 0) / data.calls : null}
+            context={t("users.reviewsContext", { percent: data.calls ? Math.round(((data.analyzed ?? 0) / data.calls) * 100) : 0 })}
+          />
+          <StatTile
+            icon={Timer}
+            label={t("users.avgCall")}
+            value={formatDuration(avgCallSeconds)}
+            context={totalTalkSeconds ? t("users.talkContext", { total: formatDuration(totalTalkSeconds) }) : undefined}
+          />
+          <StatTile
+            icon={Target}
+            label={t("users.conversion")}
+            value={data.conversion_rate === undefined ? "—" : Math.round(data.conversion_rate * 100)}
+            unit={data.conversion_rate === undefined ? undefined : "%"}
+            ratio={data.conversion_rate ?? null}
+            context={t("users.conversionContext", { leads: data.leads_created ?? 0, calls: data.calls ?? 0 })}
+          />
         </div>
       </div>
 

@@ -656,6 +656,10 @@
     "critical": "Critical",
     "notFound": "Operator not found",
     "notFoundDescription": "This user has no statistics, or you may not view them.",
-    "performanceDescription": "How each operator is performing on their conversations."
+    "performanceDescription": "How each operator is performing on their conversations.",
+    "callsContext": "{analyzed} of {calls} analyzed",
+    "reviewsContext": "{percent}% of their calls",
+    "talkContext": "{total} in total",
+    "conversionContext": "{leads} leads from {calls} calls"
   }
 }

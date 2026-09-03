@@ -656,6 +656,10 @@
     "critical": "Критично",
     "notFound": "Оператор не найден",
     "notFoundDescription": "У этого пользователя нет статистики, либо она вам недоступна.",
-    "performanceDescription": "Показатели каждого оператора по разговорам."
+    "performanceDescription": "Показатели каждого оператора по разговорам.",
+    "callsContext": "{analyzed} из {calls} проанализировано",
+    "reviewsContext": "{percent}% их звонков",
+    "talkContext": "всего {total}",
+    "conversionContext": "{leads} лидов из {calls} звонков"
   }
 }

@@ -32,7 +32,14 @@ export function ScoreMeter({ score, size = "md" }: { score?: number | null; size
         {band === "none" ? t("common.notAnalyzed") : Math.round(value)}
         {band === "none" ? null : <span className="ml-1 text-sm font-normal text-muted-foreground">/100</span>}
       </p>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" role="img" aria-label={`${Math.round(value)} / 100`}>
+      {/* track = a lighter step of the fill's own ramp, so the state reads across
+          the whole bar rather than stopping where the fill does */}
+      <div
+        className="mt-2 h-1.5 overflow-hidden rounded-full"
+        style={{ background: `color-mix(in srgb, ${bandColor[band]} 16%, transparent)` }}
+        role="img"
+        aria-label={`${Math.round(value)} / 100`}
+      >
         <div className="h-full rounded-full transition-[width] duration-[var(--motion-slow)]" style={{ width: `${Math.max(0, Math.min(100, value))}%`, background: bandColor[band] }} />
       </div>
     </div>
@@ -89,6 +96,7 @@ export function CriteriaBars({ criteria, labels }: { criteria?: OperatorCriteria
         const ratio = Math.max(0, Math.min(1, value / max));
         const translated = t(`aiEvaluation.fields.${key}`);
         const label = labels?.[key] ?? (translated === `aiEvaluation.fields.${key}` ? key.replace(/[_-]/g, " ") : translated);
+        const fill = ratio >= 0.8 ? bandColor.strong : ratio >= 0.5 ? "var(--primary)" : bandColor.attention;
         return (
           <div key={key}>
             <div className="flex items-baseline justify-between gap-3">
@@ -97,11 +105,11 @@ export function CriteriaBars({ criteria, labels }: { criteria?: OperatorCriteria
                 {max === 1 ? `${Math.round(value * 100)}%` : `${value.toFixed(1)} / ${max}`}
               </span>
             </div>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full"
-                style={{ width: `${ratio * 100}%`, background: ratio >= 0.8 ? bandColor.strong : ratio >= 0.5 ? "var(--primary)" : bandColor.attention }}
-              />
+            <div
+              className="mt-1.5 h-1.5 overflow-hidden rounded-full"
+              style={{ background: `color-mix(in srgb, ${fill} 16%, transparent)` }}
+            >
+              <div className="h-full rounded-full transition-[width] duration-[var(--motion-slow)]" style={{ width: `${ratio * 100}%`, background: fill }} />
             </div>
           </div>
         );
