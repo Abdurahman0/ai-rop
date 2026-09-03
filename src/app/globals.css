@@ -272,13 +272,7 @@ html.dark .login-canvas {
   animation: login-in 620ms var(--motion-ease) both;
 }
 
-.login-orb {
-  animation: login-orb 3.4s ease-in-out infinite;
-}
 
-.login-glow {
-  animation: login-glow 3.4s ease-in-out infinite;
-}
 
 /* The preview's own numbers animate in: the ring sweeps, bars fill, the
    sparkline draws itself. */
@@ -306,8 +300,6 @@ html.motion-reduced .login-float-2,
 html.motion-reduced .login-float-3,
 html.motion-reduced .login-float-4,
 html.motion-reduced .login-in,
-html.motion-reduced .login-orb,
-html.motion-reduced .login-glow,
 html.motion-reduced .login-ring,
 html.motion-reduced .login-bar,
 html.motion-reduced .login-draw,
@@ -491,27 +483,7 @@ html.motion-reduced .login-blink {
   }
 }
 
-@keyframes login-orb {
-  0%,
-  100% {
-    transform: scale(1) rotate(0deg);
-  }
-  50% {
-    transform: scale(1.08) rotate(3deg);
-  }
-}
 
-@keyframes login-glow {
-  0%,
-  100% {
-    opacity: 0.55;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.25);
-  }
-}
 
 @keyframes login-ring {
   from {

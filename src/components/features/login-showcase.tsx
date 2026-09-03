@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { BarChart3, Lightbulb, MessageSquare, Sparkles, Target, TrendingDown, TrendingUp } from "lucide-react";
 import { useState } from "react";
 import { useT } from "@/i18n/use-t";
@@ -138,20 +137,6 @@ export function LoginShowcase() {
 
         {/* manager panel */}
         <div className="relative space-y-6">
-          {/* the AI sits in the gutter, between the conversation and the panel it produces */}
-          <div className="pointer-events-none absolute left-0 top-[45%] z-10 hidden -translate-x-1/2 -translate-y-1/2 xl:block">
-            <div className="login-float-3 relative" data-orb="true">
-              <div className="login-glow absolute -inset-2 rounded-full bg-primary/25 blur-2xl" />
-              <Image
-                src="/ai-chip.png"
-                alt=""
-                width={418}
-                height={418}
-                priority
-                className="login-orb relative h-[92px] w-[92px] drop-shadow-[0_8px_24px_rgba(79,70,229,0.35)]"
-              />
-            </div>
-          </div>
           <div className="login-in" style={{ animationDelay: "220ms" }}>
           <div className="login-float-2"><Tilt className="rounded-2xl border border-white/10 bg-[#171a2b] p-5 text-white shadow-2xl shadow-indigo-500/10">
             <div className="mb-4 flex items-center justify-between">
