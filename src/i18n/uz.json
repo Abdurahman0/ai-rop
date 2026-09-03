@@ -65,7 +65,8 @@
     "settings": "Sozlamalar",
     "leadStatuses": "Lid statuslari",
     "customFields": "Maxsus maydonlar",
-    "appearance": "Koʻrinish"
+    "appearance": "Koʻrinish",
+    "users": "Foydalanuvchilar"
   },
   "auth": {
     "heroTitle": "Savdo nazorati sokin, tez va aniq.",
@@ -599,5 +600,18 @@
   "roles": {
     "admin": "Administrator",
     "operator": "Operator"
+  },
+  "users": {
+    "title": "Foydalanuvchilar",
+    "description": "Kompaniyangizdagi barcha xodimlar va ular ustida ishlayotgan ishlar.",
+    "user": "Foydalanuvchi",
+    "email": "Email",
+    "role": "Rol",
+    "leads": "Biriktirilgan lidlar",
+    "you": "Siz",
+    "managed": "Rollarni platforma administratori tayinlaydi.",
+    "empty": "Foydalanuvchilar yo‘q",
+    "emptyDescription": "Kompaniyangizda hozircha boshqa a’zolar yo‘q.",
+    "loadError": "Foydalanuvchilarni yuklab bo‘lmadi."
   }
 }

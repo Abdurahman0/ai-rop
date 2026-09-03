@@ -65,7 +65,8 @@
     "settings": "Settings",
     "leadStatuses": "Lead Statuses",
     "customFields": "Custom Fields",
-    "appearance": "Appearance"
+    "appearance": "Appearance",
+    "users": "Users"
   },
   "auth": {
     "heroTitle": "Sales supervision that feels calm, fast, and exact.",
@@ -599,5 +600,18 @@
   "roles": {
     "admin": "Administrator",
     "operator": "Operator"
+  },
+  "users": {
+    "title": "Users",
+    "description": "Everyone in your company and what they are working on.",
+    "user": "User",
+    "email": "Email",
+    "role": "Role",
+    "leads": "Leads assigned",
+    "you": "You",
+    "managed": "Roles are assigned by a platform administrator.",
+    "empty": "No users",
+    "emptyDescription": "Your company has no other members yet.",
+    "loadError": "Users could not be loaded."
   }
 }
