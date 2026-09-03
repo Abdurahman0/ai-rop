@@ -210,9 +210,13 @@ function LeadKanban({ leads, statuses, clients, onOpen, onMove }: { leads: Lead[
   if (statuses.length === 0) return <EmptyState title={t("resources.emptyStatusesTitle")} description={t("resources.emptyStatusesDescription")} />;
 
   return (
-    <div className="grid gap-3 md:grid-cols-3">
+    // One row, always. Columns never wrap onto a second line: the board scrolls
+    // sideways and each column scrolls its own cards.
+    <div className="flex h-[calc(100vh-23rem)] min-h-[26rem] gap-3 overflow-x-auto overscroll-x-contain pb-1 max-lg:snap-x max-lg:snap-mandatory">
       {statuses.map((status) => {
         const column = leads.filter((lead) => String(objectId(lead.status)) === String(status.id));
+        const active = over === String(status.id) && !!dragging;
+        const accent = status.color;
         return (
           <div
             key={status.id}
@@ -220,22 +224,36 @@ function LeadKanban({ leads, statuses, clients, onOpen, onMove }: { leads: Lead[
               event.preventDefault();
               setOver(String(status.id));
             }}
-            onDragLeave={() => setOver((current) => (current === String(status.id) ? null : current))}
+            onDragLeave={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                setOver((current) => (current === String(status.id) ? null : current));
+              }
+            }}
             onDrop={() => void drop(status)}
-            className={`rounded-lg border p-3 transition duration-[var(--motion-fast)] ${over === String(status.id) ? "border-primary bg-primary/5" : "border-border bg-background/60"}`}
+            className={`flex h-full min-h-0 flex-col overflow-hidden rounded-lg border p-3 transition duration-[var(--motion-fast)] max-lg:w-[85vw] max-lg:min-w-[85vw] max-lg:max-w-96 max-lg:shrink-0 max-lg:snap-center lg:min-w-60 lg:flex-1 ${
+              active ? "border-primary bg-primary/5" : "border-border bg-background/60"
+            }`}
+            style={accent && !active ? { borderColor: `color-mix(in srgb, ${accent} 26%, var(--border))`, background: `color-mix(in srgb, ${accent} 7%, var(--background))` } : undefined}
           >
-            <div className="mb-3 flex items-center justify-between">
-              <StatusBadge value={status.name} color={status.color} />
-              <span className="text-xs text-muted-foreground">{column.length}</span>
+            <div className="mb-3 flex shrink-0 items-center justify-between gap-2 px-0.5">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: accent ?? "var(--muted-foreground)" }} aria-hidden />
+                <span className="truncate text-sm font-semibold text-foreground">{status.name ?? `#${status.id}`}</span>
+              </span>
+              <span className="shrink-0 rounded-sm bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{column.length}</span>
             </div>
-            <div className="space-y-2">
+
+            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pr-0.5">
               {column.map((lead) => (
                 <div
                   key={lead.id}
                   role="button"
                   tabIndex={0}
                   draggable
-                  onDragStart={() => setDragging(lead)}
+                  onDragStart={(event) => {
+                    event.dataTransfer.effectAllowed = "move";
+                    setDragging(lead);
+                  }}
                   onDragEnd={() => setDragging(null)}
                   onClick={() => onOpen(lead.id)}
                   onKeyDown={(event) => {
@@ -244,17 +262,25 @@ function LeadKanban({ leads, statuses, clients, onOpen, onMove }: { leads: Lead[
                       onOpen(lead.id);
                     }
                   }}
-                  className={`w-full cursor-grab rounded-md border border-border bg-card p-3 text-left text-sm transition duration-[var(--motion-fast)] hover:bg-muted active:cursor-grabbing ${moving === String(lead.id) ? "opacity-50" : ""}`}
+                  className={`shrink-0 cursor-grab rounded-md border border-border bg-card p-3 text-left text-sm shadow-sm transition duration-[var(--motion-fast)] hover:border-primary/40 hover:bg-muted active:cursor-grabbing ${
+                    dragging?.id === lead.id ? "opacity-40" : ""
+                  } ${moving === String(lead.id) ? "opacity-50" : ""}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="line-clamp-3 font-medium">{lead.title ?? t("resources.untitledLead")}</p>
                     {lead.created_via?.toLowerCase().includes("ai") ? <Badge tone="ai">AI</Badge> : null}
                   </div>
-                  <p className="mt-1 text-muted-foreground"><ClientLabel client={resolveRef(lead.client, clients, lead.client_detail)} id={objectId(lead.client)} /></p>
-                  <p className="mt-2 text-xs text-muted-foreground">{labels.person(lead.assigned_to, lead.assigned_to_detail)} · {formatDate(lead.created_at)}</p>
+                  <p className="mt-1 truncate text-muted-foreground"><ClientLabel client={resolveRef(lead.client, clients, lead.client_detail)} id={objectId(lead.client)} /></p>
+                  <p className="mt-2 truncate text-xs text-muted-foreground">{labels.person(lead.assigned_to, lead.assigned_to_detail)} · {formatDate(lead.created_at)}</p>
                 </div>
               ))}
-              {column.length === 0 ? <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">{t("resources.dropHere")}</p> : null}
+
+              {/* where the card will land */}
+              {active ? <div className="h-16 shrink-0 rounded-md border border-dashed border-primary/60 bg-primary/5" aria-hidden /> : null}
+
+              {column.length === 0 && !active ? (
+                <p className="rounded-md border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">{t("resources.dropHere")}</p>
+              ) : null}
             </div>
           </div>
         );
