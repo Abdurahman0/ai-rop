@@ -93,7 +93,7 @@
     "noCompanyHint": "Попросите администратора привязать пользователя к компании и войдите снова."
   },
   "dashboard": {
-    "title": "{greeting}, Абдурахмон",
+    "title": "{greeting}, {name}",
     "description": "Вот что сегодня происходит в ваших продажах.",
     "totalCalls": "Всего звонков",
     "aiReviews": "AI-обзоры",
@@ -134,7 +134,8 @@
     "chartDate": "Дата",
     "chartCalls": "Звонки",
     "chartAiReviews": "AI-обзоры",
-    "scoringUnavailable": "Оценка менеджеров пока не формируется бэкендом, поэтому баллов нет."
+    "scoringUnavailable": "Оценка менеджеров пока не формируется бэкендом, поэтому баллов нет.",
+    "titleAnonymous": "{greeting}"
   },
   "calls": {
     "title": "Звонки",
@@ -406,7 +407,11 @@
     "selectDate": "Выберите дату",
     "clear": "Очистить",
     "openCalendar": "Открыть календарь",
-    "allDates": "Все даты"
+    "allDates": "Все даты",
+    "last7": "7 дней",
+    "last30": "30 дней",
+    "last90": "90 дней",
+    "rangeHint": "Выберите начало и конец"
   },
   "errors": {
     "loadData": "Не удалось загрузить данные",

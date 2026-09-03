@@ -14,6 +14,10 @@
   --radius-sm: max(0px, calc(var(--radius) - 4px));
   --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 6px);
+  /* Chart series. Validated for CVD separation and contrast against each
+     surface (see the dataviz palette checks) — not an automatic dark flip. */
+  --series-calls: #4f46e5;
+  --series-reviews: #eb6834;
   --motion-fast: 140ms;
   --motion-normal: 180ms;
   --motion-slow: 260ms;
@@ -35,6 +39,8 @@
 }
 
 html.dark {
+  --series-calls: #6366f1;
+  --series-reviews: #d95926;
   --background: #08090b;
   --foreground: #f3f4f6;
   --card: #111317;
@@ -141,6 +147,34 @@ button:disabled,
   background: transparent;
 }
 
+/* The chart draws itself: lines sweep left to right, the area and dots follow. */
+.chart-wipe {
+  transform-origin: left center;
+  animation: chart-wipe 900ms var(--motion-ease) both;
+}
+
+.chart-area {
+  animation: chart-fade 700ms var(--motion-ease) both;
+  animation-delay: 420ms;
+}
+
+.chart-dot {
+  animation: chart-fade 300ms var(--motion-ease) both;
+  animation-delay: 780ms;
+  transition: r var(--motion-fast) var(--motion-ease);
+}
+
+.chart-dot-delayed {
+  animation-delay: 900ms;
+}
+
+html.motion-reduced .chart-wipe,
+html.motion-reduced .chart-area,
+html.motion-reduced .chart-dot {
+  animation: none;
+  transform: none;
+}
+
 /* Kanban cards fade up as they arrive in a column. */
 .kanban-card {
   animation: card-in 180ms var(--motion-ease) both;
@@ -166,14 +200,22 @@ html.motion-reduced .kanban-card {
   pointer-events: none;
 }
 
-.theme-wave {
-  position: fixed;
-  z-index: 80;
-  border-radius: 9999px;
-  pointer-events: none;
-  transform: translate(-50%, -50%) scale(0);
-  animation: theme-wave 620ms var(--motion-ease) forwards;
+/* The theme swap is a circular reveal: the outgoing page stays put underneath
+   while the incoming one is clipped open from the toggle. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
+}
+
 
 
 .login-canvas {
@@ -385,20 +427,6 @@ html.motion-reduced .login-blink {
   }
 }
 
-@keyframes theme-wave {
-  0% {
-    transform: translate(-50%, -50%) scale(0);
-    opacity: 1;
-  }
-  55% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0;
-  }
-}
 
 @keyframes theme-icon {
   from {
@@ -428,7 +456,7 @@ html.motion-reduced .login-blink {
     transform: translate3d(0, 0, 0) rotate(0deg);
   }
   50% {
-    transform: translate3d(4px, -18px, 0) rotate(0.6deg);
+    transform: translate3d(4px, -12px, 0) rotate(0.5deg);
   }
 }
 
@@ -438,7 +466,7 @@ html.motion-reduced .login-blink {
     transform: translate3d(0, 0, 0) rotate(0deg);
   }
   50% {
-    transform: translate3d(-5px, -12px, 0) rotate(-0.45deg);
+    transform: translate3d(-5px, -8px, 0) rotate(-0.4deg);
   }
 }
 
@@ -448,7 +476,7 @@ html.motion-reduced .login-blink {
     transform: translate3d(0, 0, 0) rotate(0deg);
   }
   50% {
-    transform: translate3d(3px, -24px, 0) rotate(0.8deg);
+    transform: translate3d(3px, -15px, 0) rotate(0.6deg);
   }
 }
 
@@ -526,5 +554,23 @@ html.motion-reduced .login-blink {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes chart-wipe {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes chart-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }

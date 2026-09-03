@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { BarChart3, Lightbulb, MessageSquare, Sparkles, Target, TrendingDown, TrendingUp } from "lucide-react";
+import { useState } from "react";
 import { useT } from "@/i18n/use-t";
 
 const SCORE = 87;
@@ -14,6 +15,28 @@ const breakdown = [
   { key: "average", value: 15, bar: "bg-amber-500" },
   { key: "needsWork", value: 5, bar: "bg-red-500" },
 ];
+
+function Nudge({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const MAX = 6; // small enough that neighbours can never touch (gaps are 24px)
+
+  return (
+    <div
+      className={className}
+      style={{ transform: `translate3d(${offset.x}px, ${offset.y}px, 0)`, transition: "transform 220ms cubic-bezier(0.22, 1, 0.36, 1)" }}
+      onMouseMove={(event) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        // push away from the cursor, so the corner you approach dips back
+        const dx = (event.clientX - (rect.left + rect.width / 2)) / (rect.width / 2);
+        const dy = (event.clientY - (rect.top + rect.height / 2)) / (rect.height / 2);
+        setOffset({ x: Math.max(-1, Math.min(1, -dx)) * MAX, y: Math.max(-1, Math.min(1, -dy)) * MAX });
+      }}
+      onMouseLeave={() => setOffset({ x: 0, y: 0 })}
+    >
+      {children}
+    </div>
+  );
+}
 
 function Feature({ icon: Icon, title, text, tone }: { icon: typeof BarChart3; title: string; text: string; tone: string }) {
   return (
@@ -61,18 +84,18 @@ export function LoginShowcase() {
         </div>
       </div>
 
-      <div className="relative grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <div className="relative grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         {/* conversation + AI reading of it */}
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="login-in" style={{ animationDelay: "60ms" }}>
-            <Bubble name={t("login.preview.client")} time="00:42" text={t("login.preview.clientLine")} align="left" float="login-float" />
+            <div className="login-float"><Nudge><Bubble name={t("login.preview.client")} time="00:42" text={t("login.preview.clientLine")} align="left" float="" /></Nudge></div>
           </div>
           <div className="login-in" style={{ animationDelay: "180ms" }}>
-            <Bubble name={t("login.preview.operator")} time="00:47" text={t("login.preview.operatorLine")} align="right" float="login-float-2" />
+            <div className="login-float-2"><Nudge><Bubble name={t("login.preview.operator")} time="00:47" text={t("login.preview.operatorLine")} align="right" float="" /></Nudge></div>
           </div>
 
           <div className="login-in" style={{ animationDelay: "300ms" }}>
-          <div className="login-float-3 rounded-2xl border border-border bg-card p-4 shadow-lg shadow-black/5">
+          <div className="login-float-3"><Nudge className="rounded-2xl border border-border bg-card p-4 shadow-lg shadow-black/5">
             <p className="mb-3 text-sm font-semibold text-foreground">{t("login.preview.analysisResults")}</p>
             <dl className="space-y-2.5 text-xs">
               <div className="flex items-center justify-between gap-3">
@@ -100,15 +123,15 @@ export function LoginShowcase() {
                 <dd className="font-medium text-foreground">{t("login.preview.good")}</dd>
               </div>
             </dl>
-          </div>
+          </Nudge></div>
           </div>
         </div>
 
         {/* manager panel */}
-        <div className="relative space-y-4">
+        <div className="relative space-y-6">
           {/* the AI sits in the gutter, between the conversation and the panel it produces */}
           <div className="pointer-events-none absolute left-0 top-[45%] z-10 hidden -translate-x-1/2 -translate-y-1/2 xl:block">
-            <div className="login-float-3 relative">
+            <div className="login-float-3 relative" data-orb="true">
               <div className="login-glow absolute -inset-2 rounded-full bg-primary/25 blur-2xl" />
               <Image
                 src="/ai-chip.png"
@@ -121,7 +144,7 @@ export function LoginShowcase() {
             </div>
           </div>
           <div className="login-in" style={{ animationDelay: "220ms" }}>
-          <div className="login-float-2 rounded-2xl border border-white/10 bg-[#171a2b] p-5 text-white shadow-2xl shadow-indigo-500/10">
+          <div className="login-float-2"><Nudge className="rounded-2xl border border-white/10 bg-[#171a2b] p-5 text-white shadow-2xl shadow-indigo-500/10">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm font-semibold">{t("login.preview.panel")}</p>
               <span className="rounded-lg border border-white/15 px-2 py-1 text-[11px] text-white/60">{t("login.preview.range")}</span>
@@ -224,11 +247,11 @@ export function LoginShowcase() {
                 </div>
               </div>
             </div>
-          </div>
+          </Nudge></div>
           </div>
 
           <div className="login-in" style={{ animationDelay: "420ms" }}>
-          <div className="login-float-4 rounded-2xl border border-border bg-card p-4 shadow-lg shadow-black/5">
+          <div className="login-float-4"><Nudge className="rounded-2xl border border-border bg-card p-4 shadow-lg shadow-black/5">
             <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
               <Sparkles className="h-4 w-4" />
               {t("login.preview.recommendations")}
@@ -241,7 +264,7 @@ export function LoginShowcase() {
                 </li>
               ))}
             </ul>
-          </div>
+          </Nudge></div>
           </div>
         </div>
       </div>

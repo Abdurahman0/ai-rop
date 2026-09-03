@@ -13,11 +13,12 @@ import { useLabels } from "@/i18n/use-labels";
 import { demoAnalyses, demoCalls, demoClients, demoLeads, demoStatuses } from "@/lib/data/demo";
 import { objectId, relativeDayGreeting, resolveRef, scoreTone } from "@/lib/utils/format";
 import { useApiResource } from "@/hooks/use-api-resource";
+import { useIsAdmin, useSessionStore } from "@/stores/session-store";
 import { CALL_DIRECTIONS, CALL_STAGES, type Analysis, type Call, type Lead } from "@/types/domain";
 import { Badge, ScoreBadge, StatusBadge } from "@/components/ui/badge";
 import { AIScore } from "@/components/ui/ai-score";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangeFilter, type DateRange } from "@/components/ui/date-picker";
 import { DataTable } from "@/components/ui/table";
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/states";
 import { PageHeader } from "@/components/shell/page-header";
@@ -55,77 +56,150 @@ function KpiCard({ label, value, icon: Icon, href, loading }: { label: string; v
   );
 }
 
-function MiniChart({ calls, analyses, endDate }: { calls: Call[]; analyses: Analysis[]; endDate: Date }) {
+/**
+ * Calls vs AI reviews over the selected window. Two series that must be told
+ * apart -> categorical: brand indigo + orange, validated for CVD separation and
+ * contrast in both modes (light #4f46e5/#eb6834, dark #6366f1/#d95926).
+ * Both are direct-labelled as well as legended, so identity is never colour alone.
+ */
+function ActivityChart({ calls, analyses, range }: { calls: Call[]; analyses: Analysis[]; range: DateRange | null }) {
   const t = useT();
   const { locale } = useLocale();
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  // Seven days ending on the selected date.
-  const days = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(endDate);
-    date.setDate(endDate.getDate() - (6 - index));
-    return date;
-  });
-  const points = days.map((day) => calls.filter((call) => call.started_at && new Date(call.started_at).toDateString() === day.toDateString()).length);
-  const analyzed = days.map((day) =>
-    analyses.filter((analysis) => {
-      const call = calls.find((item) => item.id === objectId(analysis.call));
-      return call?.started_at && new Date(call.started_at).toDateString() === day.toDateString();
-    }).length,
-  );
-  const max = Math.max(1, ...points, ...analyzed);
-  const yFor = (value: number) => 190 - (value / max) * 140;
-  const xFor = (index: number) => 24 + index * 110;
-  const labelFor = (date: Date) => `${dictionaries[locale].calendar.months[date.getMonth()].slice(0, 3)} ${date.getDate()}`;
-  const activeX = activeIndex === null ? 0 : xFor(activeIndex);
-  const activeY = activeIndex === null ? 0 : yFor(Math.max(points[activeIndex] ?? 0, analyzed[activeIndex] ?? 0));
-  const tooltipX = activeX > 540 ? activeX - 174 : activeX + 18;
-  const tooltipY = Math.max(12, Math.min(126, activeY - 54));
+  const [active, setActive] = useState<number | null>(null);
+
+  const days = useMemo(() => {
+    const end = range ? new Date(range.to) : new Date();
+    const start = range ? new Date(range.from) : new Date(new Date().setDate(end.getDate() - 6));
+    const span = Math.min(31, Math.max(1, Math.round((startOfDay(end).getTime() - startOfDay(start).getTime()) / 86400000) + 1));
+    return Array.from({ length: span }, (_, index) => {
+      const day = new Date(start);
+      day.setDate(start.getDate() + index);
+      return day;
+    });
+  }, [range]);
+
+  const series = useMemo(() => {
+    const callsPerDay = days.map((day) => calls.filter((call) => call.started_at && sameDay(new Date(call.started_at), day)).length);
+    const reviewsPerDay = days.map((day) =>
+      analyses.filter((analysis) => {
+        const call = calls.find((item) => item.id === objectId(analysis.call));
+        return call?.started_at && sameDay(new Date(call.started_at), day);
+      }).length,
+    );
+    return { callsPerDay, reviewsPerDay };
+  }, [analyses, calls, days]);
+
+  const max = Math.max(1, ...series.callsPerDay, ...series.reviewsPerDay);
+  const W = 720;
+  const H = 220;
+  const padX = 28;
+  const padTop = 18;
+  const padBottom = 34;
+  const x = (index: number) => (days.length === 1 ? W / 2 : padX + (index / (days.length - 1)) * (W - padX * 2));
+  const y = (value: number) => padTop + (1 - value / max) * (H - padTop - padBottom);
+  const line = (values: number[]) => values.map((value, index) => `${index === 0 ? "M" : "L"} ${x(index)} ${y(value)}`).join(" ");
+  const area = (values: number[]) => `${line(values)} L ${x(values.length - 1)} ${H - padBottom} L ${x(0)} ${H - padBottom} Z`;
+  const months = dictionaries[locale].calendar.months;
+  const labelFor = (day: Date) => `${months[day.getMonth()].slice(0, 3)} ${day.getDate()}`;
+  // enough ticks to read, never so many they collide
+  const tickEvery = Math.ceil(days.length / 7);
+
   return (
-    <div className="h-56">
-      <svg viewBox="0 0 700 220" className="h-full w-full" role="img" aria-label={t("dashboard.callActivity")}>
+    <div>
+      <div className="mb-3 flex flex-wrap items-center gap-4 text-xs">
+        {[
+          { label: t("dashboard.chartCalls"), className: "bg-[var(--series-calls)]", total: series.callsPerDay.reduce((a, b) => a + b, 0) },
+          { label: t("dashboard.chartAiReviews"), className: "bg-[var(--series-reviews)]", total: series.reviewsPerDay.reduce((a, b) => a + b, 0) },
+        ].map((item) => (
+          <span key={item.label} className="flex items-center gap-2 text-muted-foreground">
+            <span className={`h-2 w-2 rounded-full ${item.className}`} aria-hidden />
+            {item.label}
+            <b className="text-foreground">{item.total}</b>
+          </span>
+        ))}
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="h-56 w-full"
+        role="img"
+        aria-label={`${t("dashboard.callActivity")}: ${series.callsPerDay.reduce((a, b) => a + b, 0)} ${t("dashboard.chartCalls")}, ${series.reviewsPerDay.reduce((a, b) => a + b, 0)} ${t("dashboard.chartAiReviews")}`}
+        onMouseLeave={() => setActive(null)}
+      >
         <defs>
-          <linearGradient id="area" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.22" />
-            <stop offset="100%" stopColor="#4f46e5" stopOpacity="0" />
+          {/* Wipe left-to-right with a clip, not stroke-dasharray: dasharray is
+              what makes the AI-reviews line dashed, and animating it would
+              erase the only non-colour difference between the two series. */}
+          <clipPath id="chart-reveal">
+            <rect className="chart-wipe" x="0" y="0" width={W} height={H} />
+          </clipPath>
+          <linearGradient id="calls-area" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="var(--series-calls)" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="var(--series-calls)" stopOpacity="0" />
           </linearGradient>
         </defs>
-        {[40, 90, 140, 190].map((y) => (
-          <line key={y} x1="24" x2="684" y1={y} y2={y} stroke="currentColor" className="text-border" strokeWidth="1" />
+
+        {[0, 0.5, 1].map((step) => (
+          <g key={step}>
+            <line x1={padX} x2={W - padX} y1={y(max * step)} y2={y(max * step)} stroke="currentColor" className="text-border" strokeWidth="1" />
+            <text x={padX - 8} y={y(max * step) + 4} textAnchor="end" fontSize="10" className="fill-current text-muted-foreground">
+              {Math.round(max * step)}
+            </text>
+          </g>
         ))}
-        <path d={`M24 ${yFor(points[0] ?? 0)} ${points.map((p, i) => `L ${xFor(i)} ${yFor(p)}`).join(" ")} L684 210 L24 210 Z`} fill="url(#area)" />
-        <path d={`M24 ${yFor(points[0] ?? 0)} ${points.map((p, i) => `L ${xFor(i)} ${yFor(p)}`).join(" ")}`} fill="none" stroke="#4f46e5" strokeWidth="3" />
-        <path d={`M24 ${yFor(analyzed[0] ?? 0)} ${analyzed.map((p, i) => `L ${xFor(i)} ${yFor(p)}`).join(" ")}`} fill="none" stroke="#10b981" strokeWidth="3" strokeDasharray="6 6" />
-        {days.map((day, index) => {
-          const x = xFor(index);
-          const callY = yFor(points[index] ?? 0);
-          const reviewY = yFor(analyzed[index] ?? 0);
-          const active = activeIndex === index;
-          return (
-            <g key={day.toISOString()} className="cursor-pointer" onMouseEnter={() => setActiveIndex(index)} onMouseLeave={() => setActiveIndex(null)} onFocus={() => setActiveIndex(index)} onBlur={() => setActiveIndex(null)} tabIndex={0} aria-label={`${labelFor(day)} ${t("dashboard.chartCalls")} ${points[index] ?? 0}, ${t("dashboard.chartAiReviews")} ${analyzed[index] ?? 0}`}>
-              <line x1={x} x2={x} y1="30" y2="196" stroke="currentColor" strokeWidth="1" className={`text-border transition-opacity duration-[var(--motion-fast)] ${active ? "opacity-100" : "opacity-0"}`} />
-              <circle cx={x} cy={callY} r={active ? 6 : 4} fill="#4f46e5" stroke="var(--card)" strokeWidth="3" />
-              <circle cx={x} cy={reviewY} r={active ? 6 : 4} fill="#10b981" stroke="var(--card)" strokeWidth="3" />
-              <circle cx={x} cy="110" r="34" fill="transparent" />
-            </g>
-          );
-        })}
-        {activeIndex !== null ? (
-          <g className="animate-[tooltip-in_var(--motion-fast)_var(--motion-ease)] pointer-events-none">
-            <rect x={tooltipX} y={tooltipY} width="156" height="78" rx="var(--radius)" fill="var(--card)" stroke="var(--border)" />
-            <text x={tooltipX + 12} y={tooltipY + 21} fill="var(--foreground)" fontSize="13" fontWeight="700">{labelFor(days[activeIndex])}</text>
-            <text x={tooltipX + 12} y={tooltipY + 45} fill="var(--muted-foreground)" fontSize="12">{t("dashboard.chartCalls")}</text>
-            <text x={tooltipX + 126} y={tooltipY + 45} fill="var(--foreground)" fontSize="12" fontWeight="700" textAnchor="end">{points[activeIndex]}</text>
-            <text x={tooltipX + 12} y={tooltipY + 64} fill="var(--muted-foreground)" fontSize="12">{t("dashboard.chartAiReviews")}</text>
-            <text x={tooltipX + 126} y={tooltipY + 64} fill="var(--foreground)" fontSize="12" fontWeight="700" textAnchor="end">{analyzed[activeIndex]}</text>
+
+        <g clipPath="url(#chart-reveal)">
+          <path className="chart-area" d={area(series.callsPerDay)} fill="url(#calls-area)" />
+          <path d={line(series.callsPerDay)} fill="none" stroke="var(--series-calls)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          {/* dashed, and drawn on top, so an identical pair is still readable */}
+          <path d={line(series.reviewsPerDay)} fill="none" stroke="var(--series-reviews)" strokeWidth="2" strokeDasharray="6 6" strokeLinecap="round" strokeLinejoin="round" />
+        </g>
+
+        {days.map((day, index) => (
+          <g key={day.toISOString()} onMouseEnter={() => setActive(index)} onFocus={() => setActive(index)} tabIndex={0} aria-label={`${labelFor(day)}: ${series.callsPerDay[index]} / ${series.reviewsPerDay[index]}`}>
+            <rect x={x(index) - (W - padX * 2) / Math.max(1, days.length) / 2} y={padTop} width={(W - padX * 2) / Math.max(1, days.length)} height={H - padTop - padBottom} fill="transparent" />
+            {active === index ? <line x1={x(index)} x2={x(index)} y1={padTop} y2={H - padBottom} stroke="currentColor" className="text-border" strokeWidth="1" /> : null}
+            {index % tickEvery === 0 || index === days.length - 1 ? (
+              <text x={x(index)} y={H - 12} textAnchor="middle" fontSize="10" className="fill-current text-muted-foreground">{labelFor(day)}</text>
+            ) : null}
+            <circle className="chart-dot" cx={x(index)} cy={y(series.callsPerDay[index])} r={active === index ? 5 : 3} fill="var(--series-calls)" stroke="var(--card)" strokeWidth="2" />
+            <circle className="chart-dot chart-dot-delayed" cx={x(index)} cy={y(series.reviewsPerDay[index])} r={active === index ? 5 : 3} fill="var(--series-reviews)" stroke="var(--card)" strokeWidth="2" />
+          </g>
+        ))}
+
+        {/* direct labels on the last point: identity without reading the legend */}
+        {days.length > 1 ? (
+          <>
+            <text x={x(days.length - 1)} y={y(series.callsPerDay[days.length - 1]) - 10} textAnchor="end" fontSize="10" fontWeight="600" fill="var(--series-calls)">
+              {t("dashboard.chartCalls")}
+            </text>
+            <text x={x(days.length - 1)} y={y(series.reviewsPerDay[days.length - 1]) + 16} textAnchor="end" fontSize="10" fontWeight="600" fill="var(--series-reviews)">
+              {t("dashboard.chartAiReviews")}
+            </text>
+          </>
+        ) : null}
+
+        {active !== null ? (
+          <g className="pointer-events-none animate-[tooltip-in_var(--motion-fast)_var(--motion-ease)]">
+            <rect x={Math.min(Math.max(x(active) - 70, 4), W - 144)} y={padTop + 4} width="140" height="62" rx="8" fill="var(--card)" stroke="var(--border)" />
+            <text x={Math.min(Math.max(x(active) - 70, 4), W - 144) + 10} y={padTop + 22} fontSize="11" fontWeight="700" className="fill-current text-foreground">{labelFor(days[active])}</text>
+            <text x={Math.min(Math.max(x(active) - 70, 4), W - 144) + 10} y={padTop + 39} fontSize="11" className="fill-current text-muted-foreground">{t("dashboard.chartCalls")}</text>
+            <text x={Math.min(Math.max(x(active) - 70, 4), W - 144) + 130} y={padTop + 39} fontSize="11" fontWeight="700" textAnchor="end" className="fill-current text-foreground">{series.callsPerDay[active]}</text>
+            <text x={Math.min(Math.max(x(active) - 70, 4), W - 144) + 10} y={padTop + 56} fontSize="11" className="fill-current text-muted-foreground">{t("dashboard.chartAiReviews")}</text>
+            <text x={Math.min(Math.max(x(active) - 70, 4), W - 144) + 130} y={padTop + 56} fontSize="11" fontWeight="700" textAnchor="end" className="fill-current text-foreground">{series.reviewsPerDay[active]}</text>
           </g>
         ) : null}
       </svg>
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>{t("dashboard.recentCallsCount", { count: calls.length })}</span>
-        <span>{t("dashboard.analyzedCount", { count: analyses.length })}</span>
-      </div>
     </div>
   );
+}
+
+function sameDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 export function Dashboard() {
@@ -133,7 +207,11 @@ export function Dashboard() {
   const t = useT();
   const { formatDate, formatDuration } = useFormatters();
   const labels = useLabels();
-  const [date, setDate] = useState(new Date());
+  const isAdmin = useIsAdmin();
+  const user = useSessionStore((state) => state.user);
+  // Greet whoever is signed in, not a name baked into the translations.
+  const greetedName = user?.first_name || user?.name || user?.username || "";
+  const [range, setRange] = useState<DateRange | null>(null);
   const calls = useApiResource(callsApi.list, demoCalls);
   const analyses = useApiResource(analysesApi.list, demoAnalyses);
   const leads = useApiResource(leadsApi.list, demoLeads);
@@ -165,9 +243,9 @@ export function Dashboard() {
   return (
     <>
       <PageHeader
-        title={t("dashboard.title", { greeting: t(relativeDayGreeting()) })}
+        title={greetedName ? t("dashboard.title", { greeting: t(relativeDayGreeting()), name: greetedName }) : t("dashboard.titleAnonymous", { greeting: t(relativeDayGreeting()) })}
         description={t("dashboard.description")}
-        actions={<DatePicker value={date} onChange={setDate} />}
+        actions={<DateRangeFilter value={range} onChange={setRange} />}
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {[
@@ -181,9 +259,9 @@ export function Dashboard() {
       </div>
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.35fr_0.65fr]">
         <Card>
-          <CardHeader title={t("dashboard.callActivity")} action={<div className="flex gap-1"><Badge tone="ai">{t("dashboard.sevenDays")}</Badge><Badge>{t("dashboard.thirtyDays")}</Badge></div>} />
+          <CardHeader title={t("dashboard.callActivity")} action={<span className="text-xs text-muted-foreground">{range ? t("calendar.rangeHint") : t("dashboard.sevenDays")}</span>} />
           <CardContent>
-            <MiniChart calls={calls.data} analyses={analyses.data} endDate={date} />
+            <ActivityChart calls={calls.data} analyses={analyses.data} range={range} />
           </CardContent>
         </Card>
         <Card>
@@ -233,7 +311,7 @@ export function Dashboard() {
             onRowClick={(row) => router.push(`/calls/${row.id}`)}
             columns={[
               { header: t("resources.client"), cell: (row) => row.client_phone ?? t("common.unknown") },
-              { header: t("calls.operator"), cell: (row) => labels.person(row.operator, row.operator_detail) },
+              ...(isAdmin ? [{ header: t("calls.operator"), cell: (row: Call) => labels.person(row.operator, row.operator_detail) }] : []),
               { header: t("calls.direction"), cell: (row) => { const direction = row.direction ?? "unknown"; const known = (CALL_DIRECTIONS as readonly string[]).includes(direction); return <Badge tone={known && direction !== "unknown" ? "ai" : "neutral"}>{known ? t(`calls.directions.${direction}`) : direction}</Badge>; } },
               { header: t("calls.duration"), cell: (row) => formatDuration(row.duration) },
               { header: t("calls.stage"), cell: (row) => <StatusBadge value={row.stage} label={(CALL_STAGES as readonly string[]).includes(row.stage ?? "") ? t(`calls.stages.${row.stage}`) : undefined} title={row.stage === "failed" ? row.error ?? undefined : undefined} /> },

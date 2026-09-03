@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { MouseEvent, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { LogOut, Menu, Moon, RefreshCw, ShieldAlert, Sun, X } from "lucide-react";
 import { useT } from "@/i18n/use-t";
 import { useAuthStore } from "@/stores/auth-store";
@@ -107,7 +108,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [loadingLine, setLoadingLine] = useState(false);
-  const [themeWave, setThemeWave] = useState<{ id: number; x: number; y: number; r: number; color: string } | null>(null);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setMounted(true));
@@ -164,20 +164,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   function cycleTheme(event: MouseEvent<HTMLButtonElement>) {
     const next = theme === "dark" ? "light" : "dark";
-    if (motion === "reduced") {
-      setTheme(next);
-      return;
-    }
-    // A circle of the incoming background grows from the button until it covers
-    // the screen; the theme flips underneath it, then the circle fades away.
     const rect = event.currentTarget.getBoundingClientRect();
     const x = rect.left + rect.width / 2;
     const y = rect.top + rect.height / 2;
     const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
-    const background = palettes[backgroundPalette];
-    setThemeWave({ id: Date.now(), x, y, r: radius, color: next === "dark" ? background.darkBackground : background.background });
-    window.setTimeout(() => setTheme(next), 300);
-    window.setTimeout(() => setThemeWave(null), 640);
+    const start = document.startViewTransition?.bind(document);
+
+    if (motion === "reduced" || !start) {
+      setTheme(next);
+      return;
+    }
+
+    // The new theme is REVEALED through a growing circle rather than hidden
+    // behind a coloured disc: content stays readable the whole way across.
+    const transition = start(() => {
+      flushSync(() => setTheme(next));
+    });
+    void transition.ready.then(() => {
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        { duration: 620, easing: "cubic-bezier(0.4, 0, 0.2, 1)", pseudoElement: "::view-transition-new(root)" },
+      );
+    });
   }
 
   function confirmLogout() {
@@ -213,13 +221,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       {loadingLine ? <div className="page-loading-line" /> : null}
-      {themeWave ? (
-        <div
-          key={themeWave.id}
-          className="theme-wave"
-          style={{ left: themeWave.x, top: themeWave.y, width: themeWave.r * 2, height: themeWave.r * 2, background: themeWave.color }}
-        />
-      ) : null}
       <Sidebar />
       {mobileNavOpen ? (
         <div className="fixed inset-0 z-40 lg:hidden">

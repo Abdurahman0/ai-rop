@@ -93,7 +93,7 @@
     "noCompanyHint": "Administratordan foydalanuvchini kompaniyaga biriktirishni so‘rang va qayta kiring."
   },
   "dashboard": {
-    "title": "{greeting}, Abdurahmon",
+    "title": "{greeting}, {name}",
     "description": "Bugun savdo jarayonida nimalar bo‘layotgani.",
     "totalCalls": "Jami qoʻngʻiroqlar",
     "aiReviews": "AI sharhlari",
@@ -134,7 +134,8 @@
     "chartDate": "Sana",
     "chartCalls": "Qoʻngʻiroqlar",
     "chartAiReviews": "AI sharhlari",
-    "scoringUnavailable": "Sotuvchi bahosi hozircha backend tomonidan hisoblanmaydi, shuning uchun ball yo‘q."
+    "scoringUnavailable": "Sotuvchi bahosi hozircha backend tomonidan hisoblanmaydi, shuning uchun ball yo‘q.",
+    "titleAnonymous": "{greeting}"
   },
   "calls": {
     "title": "Qoʻngʻiroqlar",
@@ -406,7 +407,11 @@
     "selectDate": "Sanani tanlang",
     "clear": "Tozalash",
     "openCalendar": "Kalendarni ochish",
-    "allDates": "Barcha sanalar"
+    "allDates": "Barcha sanalar",
+    "last7": "7 kun",
+    "last30": "30 kun",
+    "last90": "90 kun",
+    "rangeHint": "Boshlanish va tugash kunini tanlang"
   },
   "errors": {
     "loadData": "Maʼlumot yuklanmadi",

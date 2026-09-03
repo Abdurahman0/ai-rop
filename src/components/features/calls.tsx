@@ -17,7 +17,7 @@ import { Badge, StatusBadge } from "@/components/ui/badge";
 import { CALL_DIRECTIONS, CALL_STAGES } from "@/types/domain";
 import { AIScore } from "@/components/ui/ai-score";
 import { Card } from "@/components/ui/card";
-import { DateFilter } from "@/components/ui/date-picker";
+import { DateRangeFilter, type DateRange } from "@/components/ui/date-picker";
 import { SearchInput } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { DataTable } from "@/components/ui/table";
@@ -43,15 +43,15 @@ export function CallsPage() {
   const [query, setQuery] = useState("");
   const [direction, setDirection] = useState("");
   const [stage, setStage] = useState("");
-  const [date, setDate] = useState<Date | null>(null);
+  const [range, setRange] = useState<DateRange | null>(null);
   const search = useDebounced(query);
   // Filtering is server-side, so it spans every page rather than the first 50.
   const calls = useApiResource(callsApi.list, demoCalls, {
     search: search || undefined,
     direction: direction || undefined,
     stage: stage || undefined,
-    started_after: date ? startOfDayISO(date) : undefined,
-    started_before: date ? endOfDayISO(date) : undefined,
+    started_after: range ? startOfDayISO(range.from) : undefined,
+    started_before: range ? endOfDayISO(range.to) : undefined,
   });
   const analyses = useApiResource(analysesApi.list, demoAnalyses);
   const filtered = calls.data;
@@ -61,7 +61,7 @@ export function CallsPage() {
       <PageHeader
         title={t("calls.title")}
         description={isAdmin ? t("calls.description") : t("calls.myCalls")}
-        actions={<><DateFilter value={date} onChange={setDate} /><Select label={t("calls.direction")} value={direction} onChange={setDirection} options={[{ label: t("common.all"), value: "" }, { label: t("calls.inbound"), value: "inbound" }, { label: t("calls.outbound"), value: "outbound" }]} /><Select label={t("calls.stage")} value={stage} onChange={setStage} options={[{ label: t("common.all"), value: "" }, ...CALL_STAGES.map((value) => ({ label: t(`calls.stages.${value}`), value }))]} /></>}
+        actions={<><DateRangeFilter value={range} onChange={setRange} /><Select label={t("calls.direction")} value={direction} onChange={setDirection} options={[{ label: t("common.all"), value: "" }, { label: t("calls.inbound"), value: "inbound" }, { label: t("calls.outbound"), value: "outbound" }]} /><Select label={t("calls.stage")} value={stage} onChange={setStage} options={[{ label: t("common.all"), value: "" }, ...CALL_STAGES.map((value) => ({ label: t(`calls.stages.${value}`), value }))]} /></>}
       />
       <Card>
         <div className="border-b border-border p-4"><SearchInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("calls.searchPlaceholder")} /></div>

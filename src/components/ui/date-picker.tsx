@@ -13,19 +13,43 @@ function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
-/** The month grid itself, shared by the filter picker and the form field. */
+export type DateRange = { from: Date; to: Date };
+
+function within(day: Date, range: DateRange | null) {
+  if (!range) return false;
+  const time = day.getTime();
+  return time >= startOfDay(range.from).getTime() && time <= startOfDay(range.to).getTime();
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+/** The month grid, shared by the single-date field and the range filter. */
 function CalendarPanel({
   value,
   onSelect,
   onClear,
+  range,
+  onRangeSelect,
+  presets,
 }: {
   value: Date | null;
   onSelect: (date: Date) => void;
   onClear?: () => void;
+  range?: DateRange | null;
+  onRangeSelect?: (range: DateRange) => void;
+  presets?: { label: string; days: number }[];
 }) {
   const t = useT();
   const { locale } = useLocale();
-  const [view, setView] = useState(() => startOfMonth(value ?? new Date()));
+  const [view, setView] = useState(() => startOfMonth(range?.from ?? value ?? new Date()));
+  // First click sets the start, second closes the range; hovering previews it.
+  const [anchor, setAnchor] = useState<Date | null>(null);
+  const [preview, setPreview] = useState<Date | null>(null);
+  const selecting = !!onRangeSelect;
+  const draft: DateRange | null =
+    anchor && preview ? (preview < anchor ? { from: preview, to: anchor } : { from: anchor, to: preview }) : range ?? null;
   const months = dictionaries[locale].calendar.months;
   const daysShort = dictionaries[locale].calendar.days;
 
@@ -76,33 +100,73 @@ function CalendarPanel({
           <div key={`${day}-${index}`} className="py-1">{day}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-1" onMouseLeave={() => setPreview(null)}>
         {days.map((day) => {
-          const selected = isSameDay(day, value);
           const today = isSameDay(day, new Date());
           const muted = day.getMonth() !== view.getMonth();
+          const edge = selecting ? isSameDay(day, draft?.from) || isSameDay(day, draft?.to) : isSameDay(day, value);
+          const inside = selecting && within(day, draft) && !edge;
           return (
             <button
               key={day.toISOString()}
               type="button"
               aria-current={today ? "date" : undefined}
-              aria-pressed={selected}
-              className={`h-9 rounded-md text-sm transition duration-[var(--motion-fast)] hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${
-                selected
-                  ? "bg-primary text-primary-foreground hover:bg-primary"
-                  : today
-                    ? "border border-primary/30 text-primary"
-                    : muted
-                      ? "text-muted-foreground/50"
-                      : "text-foreground"
+              aria-pressed={edge}
+              onMouseEnter={() => selecting && anchor && setPreview(day)}
+              className={`h-9 text-sm transition duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${
+                edge
+                  ? "rounded-md bg-primary text-primary-foreground"
+                  : inside
+                    ? "rounded-none bg-primary/12 text-foreground first:rounded-l-md last:rounded-r-md"
+                    : today
+                      ? "rounded-md border border-primary/30 text-primary hover:bg-muted"
+                      : muted
+                        ? "rounded-md text-muted-foreground/50 hover:bg-muted"
+                        : "rounded-md text-foreground hover:bg-muted"
               }`}
-              onClick={() => onSelect(day)}
+              onClick={() => {
+                if (!selecting) {
+                  onSelect(day);
+                  return;
+                }
+                if (!anchor) {
+                  setAnchor(day);
+                  setPreview(day);
+                  return;
+                }
+                const next = day < anchor ? { from: day, to: anchor } : { from: anchor, to: day };
+                setAnchor(null);
+                setPreview(null);
+                onRangeSelect?.(next);
+              }}
             >
               {day.getDate()}
             </button>
           );
         })}
       </div>
+      {presets ? (
+        <div className="mt-3 grid grid-cols-3 gap-1.5">
+          {presets.map((preset) => (
+            <Button
+              key={preset.label}
+              size="sm"
+              type="button"
+              onClick={() => {
+                const to = new Date();
+                const from = new Date();
+                from.setDate(to.getDate() - (preset.days - 1));
+                setView(startOfMonth(from));
+                setAnchor(null);
+                setPreview(null);
+                onRangeSelect?.({ from, to });
+              }}
+            >
+              {preset.label}
+            </Button>
+          ))}
+        </div>
+      ) : null}
       <div className="mt-3 flex gap-2">
         <Button
           className="flex-1"
@@ -111,7 +175,10 @@ function CalendarPanel({
           onClick={() => {
             const today = new Date();
             setView(startOfMonth(today));
-            onSelect(today);
+            setAnchor(null);
+            setPreview(null);
+            if (onRangeSelect) onRangeSelect({ from: today, to: today });
+            else onSelect(today);
           }}
         >
           {t("calendar.today")}
@@ -229,15 +296,21 @@ export function DatePicker({ value, onChange }: { value: Date; onChange: (date: 
 }
 
 /**
- * Filter-bar picker that may hold no date at all — "All dates" until one is
- * chosen, and clearable back to that.
+ * Filter-bar range picker: pick a start and an end day, or a preset. Holds no
+ * range at all until one is chosen ("All dates").
  */
-export function DateFilter({ value, onChange }: { value: Date | null; onChange: (date: Date | null) => void }) {
+export function DateRangeFilter({ value, onChange }: { value: DateRange | null; onChange: (range: DateRange | null) => void }) {
   const t = useT();
   const { formatDate } = useFormatters();
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
   const { triggerRef, panelRef, position } = useAnchoredPanel(open, close);
+
+  const label = !value
+    ? t("calendar.allDates")
+    : isSameDay(value.from, value.to)
+      ? formatDate(toISODate(value.from))
+      : `${formatDate(toISODate(value.from))} — ${formatDate(toISODate(value.to))}`;
 
   return (
     <>
@@ -250,20 +323,27 @@ export function DateFilter({ value, onChange }: { value: Date | null; onChange: 
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        {value ? formatDate(toISODate(value)) : t("calendar.allDates")}
+        {label}
       </Button>
       {open ? (
         <FloatingCalendar panelRef={panelRef} position={position}>
           <CalendarPanel
-            value={value}
-            onSelect={(date) => {
-              onChange(date);
+            value={value?.from ?? null}
+            range={value}
+            onSelect={() => undefined}
+            onRangeSelect={(range) => {
+              onChange(range);
               setOpen(false);
             }}
             onClear={() => {
               onChange(null);
               setOpen(false);
             }}
+            presets={[
+              { label: t("calendar.last7"), days: 7 },
+              { label: t("calendar.last30"), days: 30 },
+              { label: t("calendar.last90"), days: 90 },
+            ]}
           />
         </FloatingCalendar>
       ) : null}
