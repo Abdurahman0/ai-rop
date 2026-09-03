@@ -107,7 +107,7 @@ export function LoginShowcase() {
         {/* manager panel */}
         <div className="relative space-y-4">
           {/* the AI sits in the gutter, between the conversation and the panel it produces */}
-          <div className="pointer-events-none absolute -left-6 top-[15%] z-10 hidden -translate-x-1/2 -translate-y-1/2 xl:block">
+          <div className="pointer-events-none absolute left-0 top-[45%] z-10 hidden -translate-x-1/2 -translate-y-1/2 xl:block">
             <div className="login-float-3 relative">
               <div className="login-glow absolute -inset-2 rounded-full bg-primary/25 blur-2xl" />
               <Image
