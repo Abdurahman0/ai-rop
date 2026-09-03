@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { ApiError, callsApi, clientsApi, fieldDefinitionsApi, leadsApi, leadStatusesApi, usersApi, type FieldErrors } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
@@ -38,6 +38,34 @@ import { EmptyState, ErrorState, TableSkeleton } from "@/components/ui/states";
 import { Pagination } from "@/components/ui/pagination";
 import { PageHeader } from "@/components/shell/page-header";
 
+/** Segmented chips that swap both the page actions and the list below. */
+function TabChips({ tabs, active, onChange }: { tabs: { key: string; label: string; count?: number }[]; active: string; onChange: (key: string) => void }) {
+  return (
+    <div className="mb-4 inline-flex items-center gap-1 rounded-full border border-border bg-card p-1" role="tablist">
+      {tabs.map((tab) => {
+        const selected = tab.key === active;
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => onChange(tab.key)}
+            className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition duration-[var(--motion-fast)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+              selected ? "bg-primary text-primary-foreground shadow-sm shadow-primary/25" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            {tab.label}
+            {tab.count === undefined ? null : (
+              <span className={`rounded-full px-1.5 text-xs ${selected ? "bg-white/20" : "bg-muted text-muted-foreground"}`}>{tab.count}</span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Shows a client's name, falling back to the phone and then the raw id. */
 function ClientLabel({ client, id }: { client?: Client; id?: ID }) {
   const t = useT();
@@ -58,6 +86,10 @@ function Field({ label, children, error, hint }: { label: string; children: Reac
 
 export function LeadsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // The URL is the source of truth so /leads?tab=statuses is linkable.
+  const tab = searchParams.get("tab") === "statuses" ? "statuses" : "leads";
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
   const t = useT();
   const labels = useLabels();
   const { formatDate } = useFormatters();
@@ -84,7 +116,28 @@ export function LeadsPage() {
 
   return (
     <>
-      <PageHeader title={t("resources.leadsTitle")} description={t("resources.leadsDescription")} actions={<><Button onClick={() => setView(view === "table" ? "kanban" : "table")}>{view === "table" ? t("resources.kanbanView") : t("resources.tableView")}</Button><Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>{t("resources.createLead")}</Button></>} />
+      <PageHeader
+        title={tab === "leads" ? t("resources.leadsTitle") : t("resources.statusesTitle")}
+        description={tab === "leads" ? t("resources.leadsDescription") : t("resources.statusesDescription")}
+        actions={tab === "leads" ? (
+          <>
+            <Button onClick={() => setView(view === "table" ? "kanban" : "table")}>{view === "table" ? t("resources.kanbanView") : t("resources.tableView")}</Button>
+            <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>{t("resources.createLead")}</Button>
+          </>
+        ) : (
+          <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setStatusModalOpen(true)}>{t("resources.createStatus")}</Button>
+        )}
+      />
+      <TabChips
+        active={tab}
+        onChange={(next) => router.replace(next === "statuses" ? "/leads?tab=statuses" : "/leads", { scroll: false })}
+        tabs={[
+          { key: "leads", label: t("nav.leads"), count: leads.count || undefined },
+          { key: "statuses", label: t("nav.leadStatuses"), count: statuses.count || undefined },
+        ]}
+      />
+      {tab === "statuses" ? <StatusesSection createOpen={statusModalOpen} onCreateOpenChange={setStatusModalOpen} /> : (
+      <>
       <Card>
         <div className="flex flex-wrap items-center gap-2 border-b border-border p-4"><SearchInput value={search} onChange={(event) => setSearch(event.target.value)} /><Select label={t("resources.status")} value={statusFilter} onChange={setStatusFilter} options={[{ label: t("common.all"), value: "" }, ...statuses.data.map((s) => ({ label: s.name ?? String(s.id), value: String(s.id) }))]} />{view === "kanban" ? <span className="text-xs text-muted-foreground">{t("resources.dragHint")}</span> : null}</div>
         {leads.loading ? <TableSkeleton /> : leads.error ? <ErrorState title={t("resources.loadLeadsError")} onRetry={leads.reload} /> : filtered.length === 0 ? <EmptyState title={t("resources.emptyLeadsTitle")} description={t("resources.emptyLeadsDescription")} /> : view === "table" ? (
@@ -123,6 +176,8 @@ export function LeadsPage() {
         )}
         {!leads.loading && !leads.error && filtered.length > 0 ? <Pagination page={leads.meta.page} count={leads.count} pageSize={leads.meta.pageSize} onPageChange={leads.setPage} /> : null}
       </Card>
+      </>
+      )}
       <LeadModal open={open} schema={leadFields} clients={clients.data} statuses={statuses.data} users={users.data} onOpenChange={setOpen} onSave={async (payload) => { await leadsApi.create(payload, accessToken); toast({ title: t("resources.leadCreated"), tone: "success" }); await leads.reload(); }} />
       <LeadModal open={!!editing} schema={leadFields} clients={clients.data} statuses={statuses.data} users={users.data} initial={editing ?? undefined} onOpenChange={(next) => !next && setEditing(null)} onSave={async (payload) => { if (!editing) return; await leadsApi.patch(editing.id, payload, accessToken); toast({ title: t("resources.leadUpdated"), tone: "success" }); await leads.reload(); setEditing(null); }} />
       <ConfirmDialog open={!!confirm} onOpenChange={() => setConfirm(null)} title={t("resources.deleteLeadTitle")} description={t("resources.deleteLeadDescription")} confirmLabel={t("resources.deleteLead")} onConfirm={async () => { if (confirm) { await leadsApi.delete(confirm.id, accessToken); toast({ title: t("resources.leadDeleted"), tone: "success" }); await leads.reload(); } setConfirm(null); }} />
@@ -407,9 +462,10 @@ function ClientModal({ open, onOpenChange, onSave, initial, schema }: { open: bo
   );
 }
 
-export function StatusSettingsPage() {
+/** The lead-statuses list. The parent owns the create dialog so the page header
+ *  can carry the button for whichever tab is active. */
+function StatusesSection({ createOpen, onCreateOpenChange }: { createOpen: boolean; onCreateOpenChange: (open: boolean) => void }) {
   const t = useT();
-  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<LeadStatus | null>(null);
   const [confirm, setConfirm] = useState<LeadStatus | null>(null);
   const statuses = useApiResource(leadStatusesApi.list, demoStatuses);
@@ -417,9 +473,8 @@ export function StatusSettingsPage() {
   const { toast } = useUiStore();
   return (
     <>
-      <PageHeader title={t("resources.statusesTitle")} description={t("resources.statusesDescription")} actions={<Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setOpen(true)}>{t("resources.createStatus")}</Button>} />
       <Card>
-        {statuses.loading ? <TableSkeleton /> : statuses.error ? <ErrorState title={t("resources.loadStatusesError")} onRetry={statuses.reload} /> : statuses.data.length === 0 ? <EmptyState title={t("resources.emptyStatusesTitle")} description={t("resources.emptyStatusesDescription")} /> : <DataTable
+        {statuses.loading ? <TableSkeleton /> : statuses.error ? <ErrorState title={t("resources.loadStatusesError")} description={statuses.error} onRetry={statuses.reload} /> : statuses.data.length === 0 ? <EmptyState title={t("resources.emptyStatusesTitle")} description={t("resources.emptyStatusesDescription")} /> : <DataTable
           data={statuses.data}
           rowKey={(row) => String(row.id)}
           columns={[
@@ -433,7 +488,7 @@ export function StatusSettingsPage() {
         />}
         {!statuses.loading && !statuses.error && statuses.data.length > 0 ? <Pagination page={statuses.meta.page} count={statuses.count} pageSize={statuses.meta.pageSize} onPageChange={statuses.setPage} /> : null}
       </Card>
-      <StatusModal open={open} onOpenChange={setOpen} onSave={async (payload) => { await leadStatusesApi.create(payload, accessToken); toast({ title: t("resources.statusCreated"), tone: "success" }); await statuses.reload(); }} />
+      <StatusModal open={createOpen} onOpenChange={onCreateOpenChange} onSave={async (payload) => { await leadStatusesApi.create(payload, accessToken); toast({ title: t("resources.statusCreated"), tone: "success" }); await statuses.reload(); }} />
       <StatusModal open={!!editing} initial={editing ?? undefined} onOpenChange={(next) => !next && setEditing(null)} onSave={async (payload) => { if (!editing) return; await leadStatusesApi.patch(editing.id, payload, accessToken); toast({ title: t("resources.statusUpdated"), tone: "success" }); await statuses.reload(); setEditing(null); }} />
       <ConfirmDialog open={!!confirm} onOpenChange={() => setConfirm(null)} title={t("resources.deleteStatusTitle")} description={t("resources.deleteStatusDescription")} confirmLabel={t("resources.deleteStatus")} onConfirm={async () => { if (confirm) { await leadStatusesApi.delete(confirm.id, accessToken); toast({ title: t("resources.statusDeleted"), tone: "success" }); await statuses.reload(); } setConfirm(null); }} />
     </>

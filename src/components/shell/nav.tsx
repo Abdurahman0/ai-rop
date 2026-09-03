@@ -1,4 +1,4 @@
-import { Bot, Building2, ClipboardList, DatabaseZap, FileText, LayoutDashboard, Palette, PhoneCall, SlidersHorizontal } from "lucide-react";
+import { Bot, Building2, ClipboardList, DatabaseZap, FileText, LayoutDashboard, Palette, PhoneCall } from "lucide-react";
 
 export const navGroups = [
   {
@@ -23,7 +23,6 @@ export const navGroups = [
   {
     labelKey: "nav.settings",
     items: [
-      { labelKey: "nav.leadStatuses", href: "/settings/lead-statuses", icon: SlidersHorizontal },
       { labelKey: "nav.customFields", href: "/settings/custom-fields", icon: DatabaseZap },
       { labelKey: "nav.appearance", href: "/settings/appearance", icon: Palette },
     ],
