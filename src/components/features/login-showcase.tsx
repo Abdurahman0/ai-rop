@@ -52,18 +52,25 @@ export function LoginShowcase() {
 
   return (
     <div className="relative hidden w-full lg:block">
-      <div className="login-float-4 mb-8 grid gap-6 sm:grid-cols-3">
+      <div className="login-in mb-8">
+        <div className="login-float-4 grid gap-6 sm:grid-cols-3">
         <Feature icon={BarChart3} title={t("login.features.analysisTitle")} text={t("login.features.analysisText")} tone="bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300" />
         <Feature icon={Target} title={t("login.features.performanceTitle")} text={t("login.features.performanceText")} tone="bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300" />
         <Feature icon={Lightbulb} title={t("login.features.adviceTitle")} text={t("login.features.adviceText")} tone="bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300" />
+        </div>
       </div>
 
       <div className="relative grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         {/* conversation + AI reading of it */}
         <div className="space-y-4">
-          <Bubble name={t("login.preview.client")} time="00:42" text={t("login.preview.clientLine")} align="left" float="login-float" />
-          <Bubble name={t("login.preview.operator")} time="00:47" text={t("login.preview.operatorLine")} align="right" float="login-float-2" />
+          <div className="login-in" style={{ animationDelay: "60ms" }}>
+            <Bubble name={t("login.preview.client")} time="00:42" text={t("login.preview.clientLine")} align="left" float="login-float" />
+          </div>
+          <div className="login-in" style={{ animationDelay: "180ms" }}>
+            <Bubble name={t("login.preview.operator")} time="00:47" text={t("login.preview.operatorLine")} align="right" float="login-float-2" />
+          </div>
 
+          <div className="login-in" style={{ animationDelay: "300ms" }}>
           <div className="login-float-3 rounded-2xl border border-border bg-card p-4 shadow-lg shadow-black/5">
             <p className="mb-3 text-sm font-semibold text-foreground">{t("login.preview.analysisResults")}</p>
             <dl className="space-y-2.5 text-xs">
@@ -93,19 +100,21 @@ export function LoginShowcase() {
               </div>
             </dl>
           </div>
+          </div>
         </div>
 
         {/* manager panel */}
         <div className="relative space-y-4">
           {/* the AI sits in the gutter, between the conversation and the panel it produces */}
           <div className="pointer-events-none absolute left-0 top-[45%] z-10 hidden -translate-x-1/2 -translate-y-1/2 xl:block">
-            <div className="login-float relative">
-              <div className="absolute -inset-5 rounded-full bg-primary/25 blur-2xl" />
-              <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-violet-500 text-base font-semibold text-white shadow-xl shadow-primary/40 ring-4 ring-white/70 dark:ring-white/10">
+            <div className="login-float-3 relative">
+              <div className="login-glow absolute -inset-5 rounded-full bg-primary/30 blur-2xl" />
+              <div className="login-orb relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-violet-500 text-base font-semibold text-white shadow-xl shadow-primary/40 ring-4 ring-white/70 dark:ring-white/10">
                 AI
               </div>
             </div>
           </div>
+          <div className="login-in" style={{ animationDelay: "220ms" }}>
           <div className="login-float-2 rounded-2xl border border-white/10 bg-[#171a2b] p-5 text-white shadow-2xl shadow-indigo-500/10">
             <div className="mb-4 flex items-center justify-between">
               <p className="text-sm font-semibold">{t("login.preview.panel")}</p>
@@ -119,7 +128,19 @@ export function LoginShowcase() {
                   <div className="relative">
                     <svg viewBox="0 0 100 100" className="h-24 w-24 -rotate-90">
                       <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="8" />
-                      <circle cx="50" cy="50" r="42" fill="none" stroke="url(#login-score)" strokeWidth="8" strokeLinecap="round" strokeDasharray={RING} strokeDashoffset={RING * (1 - SCORE / 100)} />
+                      <circle
+                        className="login-ring"
+                        cx="50"
+                        cy="50"
+                        r="42"
+                        fill="none"
+                        stroke="url(#login-score)"
+                        strokeWidth="8"
+                        strokeLinecap="round"
+                        strokeDasharray={RING}
+                        strokeDashoffset={RING * (1 - SCORE / 100)}
+                        style={{ "--ring-full": RING } as React.CSSProperties}
+                      />
                       <defs>
                         <linearGradient id="login-score" x1="0" y1="0" x2="1" y2="1">
                           <stop offset="0%" stopColor="#818cf8" />
@@ -134,7 +155,7 @@ export function LoginShowcase() {
                   </div>
                 </div>
                 <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-emerald-300">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  <span className="login-blink h-1.5 w-1.5 rounded-full bg-emerald-400" />
                   {t("login.preview.good")}
                 </p>
               </div>
@@ -148,6 +169,7 @@ export function LoginShowcase() {
                 <p className="mt-0.5 text-[10px] text-white/40">{t("login.preview.vsLastWeek")}</p>
                 <svg viewBox="0 0 200 60" className="mt-3 h-14 w-full" preserveAspectRatio="none" aria-hidden>
                   <polyline
+                    className="login-draw"
                     points={sparkline.map((value, index) => `${(index / (sparkline.length - 1)) * 200},${56 - (value / max) * 48}`).join(" ")}
                     fill="none"
                     stroke="#818cf8"
@@ -162,11 +184,11 @@ export function LoginShowcase() {
               <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
                 <p className="mb-3 text-[11px] text-white/50">{t("login.preview.breakdown")}</p>
                 <div className="space-y-2">
-                  {breakdown.map((row) => (
+                  {breakdown.map((row, index) => (
                     <div key={row.key} className="flex items-center gap-2">
                       <span className="w-16 shrink-0 text-[10px] text-white/60">{t(`login.preview.${row.key}`)}</span>
                       <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
-                        <span className={`block h-full rounded-full ${row.bar}`} style={{ width: `${row.value}%` }} />
+                        <span className={`login-bar block h-full rounded-full ${row.bar}`} style={{ width: `${row.value}%`, animationDelay: `${420 + index * 110}ms` }} />
                       </span>
                       <span className="w-8 shrink-0 text-right text-[10px] text-white/50">{row.value}%</span>
                     </div>
@@ -197,7 +219,9 @@ export function LoginShowcase() {
               </div>
             </div>
           </div>
+          </div>
 
+          <div className="login-in" style={{ animationDelay: "420ms" }}>
           <div className="login-float-4 rounded-2xl border border-border bg-card p-4 shadow-lg shadow-black/5">
             <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
               <Sparkles className="h-4 w-4" />
@@ -211,6 +235,7 @@ export function LoginShowcase() {
                 </li>
               ))}
             </ul>
+          </div>
           </div>
         </div>
       </div>

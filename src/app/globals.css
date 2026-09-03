@@ -164,38 +164,79 @@ html.dark .login-canvas {
 
 
 
-/* Gentle drift for the login preview cards. Negative delays stagger them
-   immediately so they never move in lockstep. */
+/* Login preview motion. Amplitudes differ per card so the group reads as
+   parallax rather than one block sliding; negative delays stagger them. */
 .login-float,
 .login-float-2,
 .login-float-3,
 .login-float-4 {
-  /* ease-in-out, not the app's snap curve: the drift should be continuous
-     rather than jumping to the peak and resting there. */
-  animation: login-float 8s ease-in-out infinite;
+  animation: login-float-a 7s ease-in-out infinite;
   will-change: transform;
 }
 
 .login-float-2 {
-  animation-duration: 10s;
+  animation-name: login-float-b;
+  animation-duration: 9s;
   animation-delay: -2.5s;
 }
 
 .login-float-3 {
-  animation-duration: 12s;
-  animation-delay: -5s;
+  animation-name: login-float-c;
+  animation-duration: 8s;
+  animation-delay: -4s;
 }
 
 .login-float-4 {
-  animation-duration: 9s;
+  animation-name: login-float-b;
+  animation-duration: 10s;
   animation-delay: -1.2s;
 }
 
-/* Appearance -> reduced motion turns the drift off. */
+/* Staggered entrance on a wrapper, so it does not fight the float transform. */
+.login-in {
+  animation: login-in 620ms var(--motion-ease) both;
+}
+
+.login-orb {
+  animation: login-orb 3.4s ease-in-out infinite;
+}
+
+.login-glow {
+  animation: login-glow 3.4s ease-in-out infinite;
+}
+
+/* The preview's own numbers animate in: the ring sweeps, bars fill, the
+   sparkline draws itself. */
+.login-ring {
+  animation: login-ring 1.6s var(--motion-ease) both;
+  animation-delay: 340ms;
+}
+
+.login-bar {
+  animation: login-bar 1s var(--motion-ease) both;
+}
+
+.login-draw {
+  stroke-dasharray: 420;
+  animation: login-draw 1.8s ease-out both;
+  animation-delay: 420ms;
+}
+
+.login-blink {
+  animation: login-blink 2.2s ease-in-out infinite;
+}
+
 html.motion-reduced .login-float,
 html.motion-reduced .login-float-2,
 html.motion-reduced .login-float-3,
-html.motion-reduced .login-float-4 {
+html.motion-reduced .login-float-4,
+html.motion-reduced .login-in,
+html.motion-reduced .login-orb,
+html.motion-reduced .login-glow,
+html.motion-reduced .login-ring,
+html.motion-reduced .login-bar,
+html.motion-reduced .login-draw,
+html.motion-reduced .login-blink {
   animation: none;
 }
 
@@ -340,12 +381,98 @@ html.motion-reduced .login-float-4 {
   }
 }
 
-@keyframes login-float {
+@keyframes login-float-a {
   0%,
   100% {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0) rotate(0deg);
   }
   50% {
-    transform: translateY(-10px);
+    transform: translate3d(4px, -18px, 0) rotate(0.6deg);
+  }
+}
+
+@keyframes login-float-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(-5px, -12px, 0) rotate(-0.45deg);
+  }
+}
+
+@keyframes login-float-c {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(3px, -24px, 0) rotate(0.8deg);
+  }
+}
+
+@keyframes login-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes login-orb {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.08) rotate(3deg);
+  }
+}
+
+@keyframes login-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+@keyframes login-ring {
+  from {
+    stroke-dashoffset: var(--ring-full);
+  }
+}
+
+@keyframes login-bar {
+  from {
+    width: 0;
+  }
+}
+
+@keyframes login-draw {
+  from {
+    stroke-dashoffset: 420;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes login-blink {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55);
+  }
+  60% {
+    opacity: 0.75;
+    box-shadow: 0 0 0 7px rgba(52, 211, 153, 0);
   }
 }
