@@ -7,6 +7,7 @@ import { statsApi, usersApi } from "@/lib/api/client";
 import { dictionaries } from "@/i18n/dictionaries";
 import { useLocale, useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
+import { finiteNumber } from "@/lib/utils/format";
 import { useApiItem } from "@/hooks/use-api-item";
 import { useStats } from "@/hooks/use-stats";
 import type { ID, OperatorStatsDetail, TimelinePoint } from "@/types/domain";
@@ -205,6 +206,8 @@ export function OperatorDetail({ id }: { id: string }) {
   const durations = (data.recent_calls ?? []).map((call) => call.duration_seconds).filter((value): value is number => typeof value === "number" && value > 0);
   const totalTalkSeconds = durations.reduce((sum, value) => sum + value, 0);
   const avgCallSeconds = durations.length ? Math.round(totalTalkSeconds / durations.length) : null;
+  const trend = finiteNumber(data.score_trend);
+  const conversion = finiteNumber(data.conversion_rate);
 
   return (
     <>
@@ -234,10 +237,10 @@ export function OperatorDetail({ id }: { id: string }) {
             <Badge tone={scoreBand(data.overall_score) === "strong" ? "success" : scoreBand(data.overall_score) === "attention" ? "warning" : scoreBand(data.overall_score) === "critical" ? "danger" : "neutral"}>
               {t(`users.${scoreBand(data.overall_score) === "none" ? "attention" : scoreBand(data.overall_score)}`)}
             </Badge>
-            {data.score_trend !== null && data.score_trend !== undefined ? (
-              <span className={`text-xs ${data.score_trend >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                {data.score_trend >= 0 ? "+" : ""}
-                {data.score_trend.toFixed(1)} {t("users.trend")}
+            {trend !== null ? (
+              <span className={`text-xs ${trend >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                {trend >= 0 ? "+" : ""}
+                {trend.toFixed(1)} {t("users.trend")}
               </span>
             ) : null}
           </div>
@@ -271,9 +274,9 @@ export function OperatorDetail({ id }: { id: string }) {
           <StatTile
             icon={Target}
             label={t("users.conversion")}
-            value={data.conversion_rate === undefined ? "—" : Math.round(data.conversion_rate * 100)}
-            unit={data.conversion_rate === undefined ? undefined : "%"}
-            ratio={data.conversion_rate ?? null}
+            value={conversion === null ? "—" : Math.round(conversion * 100)}
+            unit={conversion === null ? undefined : "%"}
+            ratio={conversion}
             context={t("users.conversionContext", { leads: data.leads_created ?? 0, calls: data.calls ?? 0 })}
           />
         </div>
@@ -315,14 +318,16 @@ export function OperatorDetail({ id }: { id: string }) {
               { header: t("users.score"), cell: (row) => <span className="w-24 block"><ScoreMeter score={row.overall_score} size="sm" /></span> },
               {
                 header: t("users.worstCall"),
-                cell: (row) =>
-                  row.worst_call ? (
-                    <Link className="text-primary hover:underline" href={`/calls/${row.worst_call.id}`}>
-                      {row.worst_call.score === null ? "—" : Math.round(row.worst_call.score)}
+                cell: (row) => {
+                  const worst = row.worst_call;
+                  if (!worst) return "—";
+                  const score = finiteNumber(worst.score);
+                  return (
+                    <Link className="text-primary hover:underline" href={`/calls/${worst.id}`}>
+                      {score === null ? "—" : Math.round(score)}
                     </Link>
-                  ) : (
-                    "—"
-                  ),
+                  );
+                },
               },
               { header: t("users.lastCall"), cell: (row) => formatDate(row.last_call_at) },
             ]}

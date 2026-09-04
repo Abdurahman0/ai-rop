@@ -1,13 +1,15 @@
 "use client";
 
 import { useT } from "@/i18n/use-t";
+import { finiteNumber } from "@/lib/utils/format";
 import type { OperatorCriteria, ScoreDistribution } from "@/types/domain";
 
 /** The bands the whole app scores against: >=85 strong, 70-84 attention, <70 critical. */
 export function scoreBand(score?: number | null) {
-  if (score === null || score === undefined || !Number.isFinite(score)) return "none" as const;
-  if (score >= 85) return "strong" as const;
-  if (score >= 70) return "attention" as const;
+  const value = finiteNumber(score);
+  if (value === null) return "none" as const;
+  if (value >= 85) return "strong" as const;
+  if (value >= 70) return "attention" as const;
   return "critical" as const;
 }
 
@@ -23,7 +25,7 @@ export const bandColor: Record<string, string> = {
 export function ScoreMeter({ score, size = "md" }: { score?: number | null; size?: "sm" | "md" | "lg" }) {
   const t = useT();
   const band = scoreBand(score);
-  const value = band === "none" ? 0 : Number(score);
+  const value = finiteNumber(score) ?? 0;
   const text = size === "lg" ? "text-4xl" : size === "sm" ? "text-base" : "text-2xl";
 
   return (
@@ -49,9 +51,9 @@ export function ScoreMeter({ score, size = "md" }: { score?: number | null; size
 /** Strong / attention / critical as one proportional bar plus a legend. */
 export function DistributionBar({ distribution }: { distribution?: ScoreDistribution }) {
   const t = useT();
-  const strong = distribution?.strong ?? 0;
-  const attention = distribution?.attention ?? 0;
-  const critical = distribution?.critical ?? 0;
+  const strong = finiteNumber(distribution?.strong) ?? 0;
+  const attention = finiteNumber(distribution?.attention) ?? 0;
+  const critical = finiteNumber(distribution?.critical) ?? 0;
   const total = strong + attention + critical;
   if (total === 0) return <span className="text-xs text-muted-foreground">—</span>;
 
@@ -91,18 +93,21 @@ export function CriteriaBars({ criteria, labels }: { criteria?: OperatorCriteria
 
   return (
     <div className="space-y-3">
-      {entries.map(([key, value]) => {
+      {entries.map(([key, raw]) => {
         const max = CRITERION_MAX[key] ?? 5;
-        const ratio = Math.max(0, Math.min(1, value / max));
+        // A criterion averages to null when nothing in the window scored it —
+        // the row still names it, with no figure and an empty track.
+        const value = finiteNumber(raw);
+        const ratio = value === null ? 0 : Math.max(0, Math.min(1, value / max));
         const translated = t(`aiEvaluation.fields.${key}`);
         const label = labels?.[key] ?? (translated === `aiEvaluation.fields.${key}` ? key.replace(/[_-]/g, " ") : translated);
-        const fill = ratio >= 0.8 ? bandColor.strong : ratio >= 0.5 ? "var(--primary)" : bandColor.attention;
+        const fill = value === null ? bandColor.none : ratio >= 0.8 ? bandColor.strong : ratio >= 0.5 ? "var(--primary)" : bandColor.attention;
         return (
           <div key={key}>
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-sm text-foreground first-letter:uppercase">{label}</span>
               <span className="font-mono text-xs text-muted-foreground">
-                {max === 1 ? `${Math.round(value * 100)}%` : `${value.toFixed(1)} / ${max}`}
+                {value === null ? "—" : max === 1 ? `${Math.round(value * 100)}%` : `${value.toFixed(1)} / ${max}`}
               </span>
             </div>
             <div

@@ -61,6 +61,20 @@ export function formatDuration(seconds?: number | null, fallback = "Not recorded
   return `${Math.floor(total / 60)}:${`${total % 60}`.padStart(2, "0")}`;
 }
 
+/**
+ * Aggregates from the stats endpoints are typed as numbers but arrive as
+ * whatever the aggregation produced: `null` when there was nothing to average,
+ * a string from a serialized decimal, or a boolean from a raw evaluation flag.
+ * Anything that is not a real number becomes null so callers render a blank
+ * instead of calling a number method on it.
+ */
+export function finiteNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "boolean") return value ? 1 : 0;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function titleCase(value?: string) {
   if (!value) return "Unknown";
   return value

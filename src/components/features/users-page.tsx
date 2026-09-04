@@ -6,6 +6,7 @@ import { ArrowRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { ApiError, leadsApi, statsApi, usersApi, type FieldErrors } from "@/lib/api/client";
 import { useT } from "@/i18n/use-t";
 import { useFormatters } from "@/i18n/use-formatters";
+import { finiteNumber } from "@/lib/utils/format";
 import { useApiResource } from "@/hooks/use-api-resource";
 import { useStats } from "@/hooks/use-stats";
 import { useAuthStore } from "@/stores/auth-store";
@@ -414,24 +415,30 @@ function PerformanceSection() {
           },
           {
             header: t("users.score"),
-            cell: (row) => (
-              <span className="flex items-center gap-2">
-                <span className="w-24"><ScoreMeter score={row.overall_score} size="sm" /></span>
-                {row.score_trend !== null && row.score_trend !== undefined ? (
-                  <span className={`text-xs ${row.score_trend >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                    {row.score_trend >= 0 ? "+" : ""}
-                    {row.score_trend.toFixed(1)}
-                  </span>
-                ) : null}
-              </span>
-            ),
+            cell: (row) => {
+              const trend = finiteNumber(row.score_trend);
+              return (
+                <span className="flex items-center gap-2">
+                  <span className="w-24"><ScoreMeter score={row.overall_score} size="sm" /></span>
+                  {trend !== null ? (
+                    <span className={`text-xs ${trend >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+                      {trend >= 0 ? "+" : ""}
+                      {trend.toFixed(1)}
+                    </span>
+                  ) : null}
+                </span>
+              );
+            },
           },
           { header: t("users.calls"), cell: (row) => <span className="tabular-nums">{row.calls}</span> },
           { header: t("users.talkTime"), cell: (row) => formatDuration(row.talk_time_seconds ?? null) },
           { header: t("users.leadsCreated"), cell: (row) => <span className="tabular-nums">{row.leads_created ?? 0}</span> },
           {
             header: t("users.conversion"),
-            cell: (row) => (row.conversion_rate === undefined ? "—" : <span className="tabular-nums">{Math.round(row.conversion_rate * 100)}%</span>),
+            cell: (row) => {
+              const rate = finiteNumber(row.conversion_rate);
+              return rate === null ? "—" : <span className="tabular-nums">{Math.round(rate * 100)}%</span>;
+            },
           },
           { header: t("users.distribution"), cell: (row) => <DistributionBar distribution={row.score_distribution} /> },
         ]}
